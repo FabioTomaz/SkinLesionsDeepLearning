@@ -14,7 +14,7 @@ import os
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
+PWA_SERVICE_WORKER_PATH = os.path.join(BASE_DIR, 'SkinLesions/static/js', 'serviceworker.js')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/2.1/howto/deployment/checklist/
@@ -25,7 +25,7 @@ SECRET_KEY = '-kkbsk82)w%9@_mz&!#5k1&uzo*$g@25ajgu3k%0k1zhzte^--'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'SkinLesions.apps.SkinlesionsConfig',
+    'pwa',
 ]
 
 MIDDLEWARE = [
@@ -120,3 +121,14 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/2.1/howto/static-files/
 
 STATIC_URL = '/static/'
+
+PWA_APP_NAME = 'SkinLesions'
+PWA_APP_DESCRIPTION = "A application to detect and monitor skin lesions"
+PWA_APP_THEME_COLOR = '#0A0302'
+PWA_APP_BACKGROUND_COLOR = '#ffffff'
+PWA_APP_DISPLAY = 'standalone'
+PWA_APP_SCOPE = '/'
+PWA_APP_ORIENTATION = 'any'
+PWA_APP_START_URL = '/base_layout'
+PWA_APP_DIR = 'ltr'
+PWA_APP_LANG = 'en-US'

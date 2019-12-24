@@ -1,0 +1,66 @@
+<!DOCTYPE HTML>
+
+<html lang="en">
+    {% load pwa %}
+    {% load staticfiles %}
+    <head>
+        {% progressive_web_app_meta %}
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+        <meta name="description" content="A web app for automated skin lesion diagnosis">
+        <meta name="author" content="Fabio Tomaz">
+
+        <title>SkinLesions</title>
+
+        <!-- Font Awesome -->
+        <script defer src="{% static 'fonts/all.min.js' %}"></script>
+        <!-- Bootstrap core CSS -->
+        <link rel="stylesheet" type="text/css" href="{% static 'css/bootstrap.min.css' %}"/>
+
+    </head>
+
+    <body class="fixed-nav sticky-footer bg-light">
+
+        <nav class="navbar navbar-expand-xl fixed-top navbar-dark bg-dark" style="-webkit-box-shadow: 0 3px 4px -2px rgba(0,0,0,0.75); -moz-box-shadow: 0 3px 4px -2px rgba(0,0,0,0.75); box-shadow: 0 3px 4px -2px rgba(0,0,0,0.75);">
+            <a class="navbar-brand" href="{% url 'about' %}">SkinLesions <i class="far fa-comment-alt"></i></a>
+            <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarCollapse"
+                    aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="navbarCollapse">
+
+                <ul class="navbar-nav mr-auto">
+                    <li class="nav-item {% if nbar == 'Diagnosis' %}active{% endif %}">
+                        <a class="nav-link" href="{% url 'about' %}"><i class="fas fa-th-list"></i> Diagnosis</a>
+                    </li>
+                    <li class="nav-item {% if nbar == 'About' %}active{% endif %}">
+                        <a class="nav-link" href="{% url 'about' %}"><i class="fas fa-comments"></i> About</a>
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <main role="main">
+            <div class="container body-content">
+                <p></p>
+                {% block content %} {% endblock %}
+            </div> <!-- /container -->
+        </main>
+
+        <footer style=":sticky-footer">
+            <hr/>
+            <div class="container">
+                <p class="text-muted" align="center">&copy; 2020 - SkinLesions </p>
+            </div>
+        </footer>
+
+        <!-- JQuery and Bootstrap stuff
+        ================================================== -->
+        <!-- Placed at the end of the document so the pages load faster -->
+        <script src="{% static 'js/jquery-3.4.1.slim.min.js' %}"></script>
+        <script src="{% static 'js/popper.min.js' %}"></script>
+        <script src="{% static 'js/bootstrap.min.js' %}"></script>
+
+    </body>
+</html>
