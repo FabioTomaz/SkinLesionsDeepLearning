@@ -40,13 +40,7 @@ class TransferLearnClassifier(LesionClassifier):
         start_lr = 1e-4
 
         # create an instance of base model which is pre-trained on the ImageNet dataset.
-        if base_model_param.class_name == 'ResNeXt50':
-            # A workaround to use ResNeXt in Keras 2.2.4.
-            # See http://donghao.org/2019/02/22/using-resnext-in-keras-2-2-4/
-            self._base_model = class_(include_top=False, weights='imagenet', input_shape=input_shape,
-                                        backend=keras.backend, layers=keras.layers, models=keras.models, utils=keras.utils)
-        else:
-            self._base_model = class_(include_top=False, weights='imagenet', input_shape=input_shape)
+        self._base_model = class_(include_top=False, weights='imagenet', input_shape=input_shape)
 
         # Freeze all layers in the base model
         for layer in self._base_model.layers:

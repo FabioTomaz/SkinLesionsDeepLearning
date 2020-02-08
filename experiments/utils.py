@@ -158,7 +158,7 @@ def preprocess_input_2(x, data_format=None, **kwargs):
     return x
 
 def ensemble_predictions(result_folder, category_names, save_file=True,
-                         model_names=['DenseNet201', 'Xception', 'ResNeXt50'],
+                         model_names=['DenseNet201', 'Xception'],
                          postfixes=['best_balanced_acc', 'best_loss', 'latest']):
     """ Ensemble predictions of different models. """
     for postfix in postfixes:

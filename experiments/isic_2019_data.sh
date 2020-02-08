@@ -12,4 +12,5 @@ echo "Downloading ISIC 2019 ground truth..."
 curl -SL https://s3.amazonaws.com/isic-challenge-2019/ISIC_2019_Training_GroundTruth.csv > ./data/isic2019/ISIC_h2019_Training_GroundTruth.csv
 
 echo "Downloading ISIC 2019 test data..."
-curl -SL https://s3.amazonaws.com/isic-challenge-2019/ISIC_2019_Test_Input.zip > ./data/isic2019/ISIC_2019_Test_Input.csv
+curl -SL https://s3.amazonaws.com/isic-challenge-2019/ISIC_2019_Test_Input.zip > ./data/isic2019/ISIC_2019_Test_Input.zip
+unzip ./data/isic2019/ISIC_2019_Test_Input.zip -d ./data/isic2019

@@ -8,7 +8,7 @@ from data import load_isic_training_data, load_isic_training_and_out_dist_data, 
 from vanilla_classifier import VanillaClassifier
 from transfer_learn_classifier import TransferLearnClassifier
 from metrics import balanced_accuracy
-from base_model_param import get_transfer_model_param_map, get_transfer_model_param_map_2
+from base_model_param import get_transfer_model_param_map
 from lesion_classifier import LesionClassifier
 from utils import ensemble_predictions
 
@@ -18,7 +18,26 @@ def main():
     parser.add_argument('--batchsize', type=int, help='Batch size (default: %(default)s)', default=32)
     parser.add_argument('--maxqueuesize', type=int, help='Maximum size for the generator queue (default: %(default)s)', default=10)
     parser.add_argument('--epoch', type=int, help='Number of epochs (default: %(default)s)', default=100)
-    parser.add_argument('--model', dest='models', nargs='*', choices=['Vanilla', 'DenseNet201', 'Xception', 'ResNeXt50', 'NASNetLarge', 'InceptionResNetV2'], help='Models')
+    parser.add_argument('--model', 
+                        dest='models', 
+                        nargs='*', 
+                        choices=[
+                            'Vanilla', 
+                            'DenseNet201', 
+                            'Xception', 
+                            'NASNetLarge', 
+                            'InceptionResNetV2', 
+                            'VGG16', 
+                            'VGG19', 
+                            "EfficientNetB0", 
+                            "EfficientNetB1",
+                            "EfficientNetB2",
+                            "EfficientNetB3",
+                            "EfficientNetB4",
+                            "EfficientNetB5", 
+                            "EfficientNetB6"
+                        ], 
+                        help='Models')
     parser.add_argument('--training', dest='training', action='store_true', help='Train models')
     parser.add_argument('--predval', dest='predval', action='store_true', help='Predict validation set')
     parser.add_argument('--predtest', dest='predtest', action='store_true', help='Predict the test data which contains 8238 JPEG images of skin lesions.')
