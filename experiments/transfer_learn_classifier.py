@@ -1,13 +1,11 @@
 from importlib import import_module
 from lesion_classifier import LesionClassifier
 from base_model_param import BaseModelParam
-import tensorflow as tf
-import keras
-import keras.backend as K
-from keras.layers import Dense, Activation, GlobalAveragePooling2D, Dropout
-from keras.models import Model
-from keras.optimizers import Adam
-from keras.callbacks import ReduceLROnPlateau, EarlyStopping
+import tensorflow.keras.backend as K
+from tensorflow.keras.layers import Dense, Activation, GlobalAveragePooling2D, Dropout
+from tensorflow.keras.models import Model
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 
 class TransferLearnClassifier(LesionClassifier):
     """Skin lesion classifier based on transfer learning.

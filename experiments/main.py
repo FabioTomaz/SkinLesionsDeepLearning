@@ -1,9 +1,9 @@
 import argparse
 import os
 import datetime
-from keras.models import load_model
-from keras import backend as K
-from keras.utils import np_utils
+from tensorflow.keras.models import load_model
+from tensorflow.keras import backend as K
+from tensorflow.keras import utils
 from data import load_isic_training_data, load_isic_training_and_out_dist_data, train_validation_split, compute_class_weight_dict, get_dataframe_from_img_folder
 from vanilla_classifier import VanillaClassifier
 from transfer_learn_classifier import TransferLearnClassifier
@@ -35,7 +35,10 @@ def main():
                             "EfficientNetB3",
                             "EfficientNetB4",
                             "EfficientNetB5", 
-                            "EfficientNetB6"
+                            "EfficientNetB6",
+                            "ResNet50",
+                            "ResNet101",
+                            "ResNet152",
                         ], 
                         help='Models')
     parser.add_argument('--training', dest='training', action='store_true', help='Train models')
@@ -55,7 +58,6 @@ def main():
     pred_result_folder_val = args.predvalresultfolder
     pred_result_folder_test = args.predtestresultfolder
     model_folder = args.modelfolder
-    softmax_score_folder = 'softmax_scores'
     batch_size = args.batchsize
     max_queue_size = args.maxqueuesize
     epoch_num = args.epoch
@@ -63,10 +65,6 @@ def main():
     # ISIC data
     training_image_folder = os.path.join(data_folder, 'ISIC_2019_Training_Input')
     test_image_folder = os.path.join(data_folder, 'ISIC_2019_Test_Input')
-
-    # Out-of-distribution data
-    out_dist_image_folder = os.path.join(data_folder, 'Out_Distribution')
-    out_dist_pred_result_folder = 'out_dist_predict_results'
 
     # Ground truth
     ground_truth_file = os.path.join(data_folder, 'ISIC_2019_Training_GroundTruth.csv')
@@ -175,9 +173,9 @@ def train_vanilla(df_train, df_val, num_classes, class_weight_dict, batch_size, 
         class_weight=class_weight_dict,
         metrics=[balanced_accuracy(num_classes), 'accuracy'],
         image_paths_train=df_train['path'].tolist(),
-        categories_train=np_utils.to_categorical(df_train['category'], num_classes=num_classes),
+        categories_train=utils.to_categorical(df_train['category'], num_classes=num_classes),
         image_paths_val=df_val['path'].tolist(),
-        categories_val=np_utils.to_categorical(df_val['category'], num_classes=num_classes)
+        categories_val=utils.to_categorical(df_val['category'], num_classes=num_classes)
     )
     classifier.model.summary()
     print('Begin to train Vanilla CNN')
@@ -202,9 +200,9 @@ def train_transfer_learning(base_model_params, df_train, df_val, num_classes, cl
             metrics=[balanced_accuracy(num_classes), 'accuracy'],
             class_weight=class_weight_dict,
             image_paths_train=df_train['path'].tolist(),
-            categories_train=np_utils.to_categorical(df_train['category'], num_classes=num_classes),
+            categories_train=utils.to_categorical(df_train['category'], num_classes=num_classes),
             image_paths_val=df_val['path'].tolist(),
-            categories_val=np_utils.to_categorical(df_val['category'], num_classes=num_classes)
+            categories_val=utils.to_categorical(df_val['category'], num_classes=num_classes)
         )
         classifier.model.summary()
         print("Begin to train {}".format(model_param.class_name))

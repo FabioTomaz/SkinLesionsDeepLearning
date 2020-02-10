@@ -1,11 +1,11 @@
 import os
 import tensorflow as tf
-from keras import backend as K
-from keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dropout, Dense, Activation
-from keras.models import Sequential
-from keras.optimizers import Adam
-from keras.applications import imagenet_utils
-from keras.callbacks import ReduceLROnPlateau, EarlyStopping
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Conv2D, MaxPooling2D, GlobalAveragePooling2D, Dropout, Dense, Activation
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.applications import imagenet_utils
+from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from lesion_classifier import LesionClassifier
 from base_model_param import BaseModelParam
 

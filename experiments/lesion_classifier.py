@@ -5,16 +5,15 @@ import numpy as np
 from Augmentor import Pipeline
 from Augmentor.Operations import CropPercentage
 from image_iterator import ImageIterator
-from keras.optimizers import Adam
-from keras.callbacks import ModelCheckpoint, CSVLogger
-from keras.models import Model
 from keras_numpy_backend import softmax
-import keras.backend as K
-import tensorflow as tf
+import tensorflow.keras.backend as K
+from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
+from tensorflow.keras.models import Model
 import random
 
-from tensorflow import ConfigProto
-from tensorflow import InteractiveSession
+from tensorflow.compat.v1 import ConfigProto
+from tensorflow.compat.v1 import InteractiveSession
 
 config = ConfigProto()
 config.gpu_options.allow_growth = True
@@ -84,6 +83,8 @@ class LesionClassifier():
         p_train.flip_top_bottom(probability=0.5)
         # Flip the image along its horizontal axis
         p_train.flip_left_right(probability=0.5)
+        # Shear image
+        p_train.shear(probability=0.5, max_shear_left=20, max_shear_right=20)
         # Random change brightness of the image
         p_train.random_brightness(probability=0.5, min_factor=0.9, max_factor=1.1)
         # Random change saturation of the image
@@ -216,7 +217,7 @@ class LesionClassifier():
     def _create_tensorboard_logger(self):
         if not os.path.exists(self.history_folder):
             os.makedirs(self.history_folder)
-        return tf.keras.callbacks.TensorBoard(log_dir=self.history_folder, histogram_freq=0)
+        return TensorBoard(log_dir=self.history_folder, histogram_freq=0)
 
     @property
     def model(self):

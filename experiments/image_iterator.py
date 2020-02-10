@@ -13,9 +13,9 @@ import numpy as np
 import os
 import warnings
 import io
-import keras.backend as K
+import tensorflow.keras.backend as K
 from PIL import Image
-from keras.preprocessing.image import Iterator, img_to_array
+from tensorflow.keras.preprocessing.image import Iterator, img_to_array
 from Augmentor import Pipeline
 from tqdm import trange
 

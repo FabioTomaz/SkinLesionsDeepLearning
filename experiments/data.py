@@ -54,8 +54,3 @@ def get_dataframe_from_img_folder(img_folder, has_path_col=True):
         return pd.DataFrame([[Path(x).stem, x] for x in sorted(Path(img_folder).glob('**/*.jpg'))], columns=['image', 'path'], dtype=np.str)
     else:
         return pd.DataFrame([Path(x).stem for x in sorted(Path(img_folder).glob('**/*.jpg'))], columns=['image'], dtype=np.str)
-# enviar artigos
-# mail para fabio maia
-# 2 projetos prontos a funcionar
-# enviar tabela sota
-# 4 as 5 da proxima segunda feira
