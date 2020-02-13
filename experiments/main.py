@@ -1,6 +1,8 @@
 import argparse
 import os
 import datetime
+# Import layers to load model
+import efficientnet.tfkeras
 from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 from tensorflow.keras import utils

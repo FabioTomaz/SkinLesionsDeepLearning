@@ -11,6 +11,7 @@ from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
 from tensorflow.keras.models import Model
 import random
+import datetime
 
 from tensorflow.compat.v1 import ConfigProto
 from tensorflow.compat.v1 import InteractiveSession
@@ -54,6 +55,8 @@ class LesionClassifier():
         self.categories_train = categories_train
         self.image_paths_val = image_paths_val
         self.categories_val = categories_val
+        
+        self.log_date = datetime.datetime.now().isoformat()
 
         self.aug_pipeline_train = LesionClassifier.create_aug_pipeline_train(self.input_size)
         print('Image Augmentation Pipeline for Training Set')
@@ -186,25 +189,29 @@ class LesionClassifier():
             filepath=os.path.join(self.model_folder, "{}_best_balanced_acc.hdf5".format(self.model_name)),
             monitor='val_balanced_accuracy',
             verbose=1,
-            save_best_only=True)
+            save_best_only=True
+        )
 
         checkpoint_balanced_acc_weights = ModelCheckpoint(
             filepath=os.path.join(self.model_folder, "{}_best_balanced_acc_weights.hdf5".format(self.model_name)),
             monitor='val_balanced_accuracy',
             verbose=1,
             save_weights_only=True,
-            save_best_only=True)
+            save_best_only=True
+        )
         
         checkpoint_latest = ModelCheckpoint(
             filepath=os.path.join(self.model_folder, "{}_latest.hdf5".format(self.model_name)),
             verbose=1,
-            save_best_only=False)
+            save_best_only=False
+        )
 
         checkpoint_loss = ModelCheckpoint(
             filepath=os.path.join(self.model_folder, "{}_best_loss.hdf5".format(self.model_name)),
             monitor='val_loss',
             verbose=1,
-            save_best_only=True)
+            save_best_only=True
+        )
         
         return [checkpoint_balanced_acc, checkpoint_balanced_acc_weights, checkpoint_latest, checkpoint_loss]
 
@@ -212,12 +219,12 @@ class LesionClassifier():
         if not os.path.exists(self.history_folder):
             os.makedirs(self.history_folder)
 
-        return CSVLogger(filename=os.path.join(self.history_folder, "{}.training.csv".format(self.model_name)), append=True)
+        return CSVLogger(filename=os.path.join(self.history_folder, self.model_name, self.log_date, "training.csv"), append=True)
 
     def _create_tensorboard_logger(self):
         if not os.path.exists(self.history_folder):
             os.makedirs(self.history_folder)
-        return TensorBoard(log_dir=self.history_folder, histogram_freq=0)
+        return TensorBoard(log_dir=os.path.join(self.history_folder, self.model_name, self.log_date), histogram_freq=0)
 
     @property
     def model(self):
