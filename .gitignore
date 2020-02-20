@@ -140,7 +140,8 @@ experiments/Cmd_History.txt
 experiments/softmax_scores/
 
 # Dataset
-experiments/data
+experiments/data/isic_archive
+experiments/data/isic2019
 
 # DG Paper
 papers/
