@@ -35,8 +35,22 @@ class LesionClassifier():
         batch_size: Integer, size of a batch.
         image_data_format: String, either 'channels_first' or 'channels_last'.
     """
-    def __init__(self, model_folder, input_size, image_data_format=None, batch_size=32, max_queue_size=10, rescale=None, preprocessing_func=None, class_weight=None,
-        num_classes=None, image_paths_train=None, categories_train=None, image_paths_val=None, categories_val=None):
+    def __init__(
+        self, 
+        model_folder, 
+        input_size, 
+        image_data_format=None, 
+        batch_size=32, 
+        max_queue_size=10, 
+        rescale=None, 
+        preprocessing_func=None, 
+        class_weight=None,
+        num_classes=None, 
+        image_paths_train=None, 
+        categories_train=None, 
+        image_paths_val=None, 
+        categories_val=None
+    ):
 
         self.history_folder = 'history'
         self.model_folder = model_folder
@@ -179,21 +193,23 @@ class LesionClassifier():
 
         return generator_train, generator_val
 
-    def _create_checkpoint_callbacks(self):
+    def _create_checkpoint_callbacks(self, subdir):
         """Create the functions to be applied at given stages of the training procedure."""
 
-        if not os.path.exists(self.model_folder):
-            os.makedirs(self.model_folder)
+        model_path = os.path.join(self.model_folder, self.model_name, subdir)
+
+        if not os.path.exists(model_path):
+            os.makedirs(model_path)
         
         checkpoint_balanced_acc = ModelCheckpoint(
-            filepath=os.path.join(self.model_folder, "{}_best_balanced_acc.hdf5".format(self.model_name)),
+            filepath=os.path.join(model_path, "best_balanced_acc.hdf5"),
             monitor='val_balanced_accuracy',
             verbose=1,
             save_best_only=True
         )
 
         checkpoint_balanced_acc_weights = ModelCheckpoint(
-            filepath=os.path.join(self.model_folder, "{}_best_balanced_acc_weights.hdf5".format(self.model_name)),
+            filepath=os.path.join(model_path, "best_balanced_acc_weights.hdf5"),
             monitor='val_balanced_accuracy',
             verbose=1,
             save_weights_only=True,
@@ -201,13 +217,13 @@ class LesionClassifier():
         )
         
         checkpoint_latest = ModelCheckpoint(
-            filepath=os.path.join(self.model_folder, "{}_latest.hdf5".format(self.model_name)),
+            filepath=os.path.join(model_path,  "latest.hdf5"),
             verbose=1,
             save_best_only=False
         )
 
         checkpoint_loss = ModelCheckpoint(
-            filepath=os.path.join(self.model_folder, "{}_best_loss.hdf5".format(self.model_name)),
+            filepath=os.path.join(model_path, "best_loss.hdf5"),
             monitor='val_loss',
             verbose=1,
             save_best_only=True
@@ -215,16 +231,31 @@ class LesionClassifier():
         
         return [checkpoint_balanced_acc, checkpoint_balanced_acc_weights, checkpoint_latest, checkpoint_loss]
 
-    def _create_csvlogger_callback(self):
+    def _create_csvlogger_callback(self, subdir):
         if not os.path.exists(self.history_folder):
             os.makedirs(self.history_folder)
 
-        return CSVLogger(filename=os.path.join(self.history_folder, self.model_name, self.log_date, "training.csv"), append=True)
+        return CSVLogger(
+            filename=os.path.join(
+                self.history_folder, 
+                self.model_name, 
+                subdir, 
+                "training.csv"
+            ), 
+            append=True
+        )
 
-    def _create_tensorboard_logger(self):
+    def _create_tensorboard_logger(self, subdir):
         if not os.path.exists(self.history_folder):
             os.makedirs(self.history_folder)
-        return TensorBoard(log_dir=os.path.join(self.history_folder, self.model_name, self.log_date), histogram_freq=0)
+        return TensorBoard(
+            log_dir=os.path.join(
+                self.history_folder, 
+                self.model_name, 
+                subdir
+            ), 
+            histogram_freq=0
+        )
 
     @property
     def model(self):

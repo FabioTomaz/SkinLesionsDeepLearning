@@ -58,6 +58,69 @@ def plot_complexity_graph(
     fig.tight_layout(rect=[0, 0.02, 1, 0.96])
     return fig
 
+def plot_hyperparameter_comparisson_metric(
+    models_info, 
+    metric,
+    y_min,
+    y_max,
+    hyperparameters_compared=[],
+    constant_parameters={},
+    title="", 
+    figsize=(14, 6), 
+    feature_extract_epochs=None,
+    epoch_min=0, 
+    epoch_max=100, 
+):
+    models_info_list = []
+    for model_info in models_info:
+        add=True
+        for key, value in constant_parameters.items():
+            if value is None or model_info["hyperparameters"][key] == "None":
+                if str(value) != model_info["hyperparameters"][key]:
+                    add=False
+                    break
+            elif float(model_info["hyperparameters"][key]) != float(value):
+                add=False
+                break
+        if add==True:
+            models_info_list.append(model_info)
+
+    if(len(models_info_list)==0):
+        return  
+
+    fig, (ax1) = plt.subplots(
+        nrows=1, 
+        ncols=1, 
+        figsize=figsize
+    )
+    fig.patch.set_facecolor('white')
+    fig.suptitle(title, fontsize=14)
+
+    for model_info in models_info_list:
+        df = pd.read_csv(model_info["log"])
+        label = ""
+        for hyperparameter in hyperparameters_compared:
+            label += hyperparameter + "=" + model_info["hyperparameters"][hyperparameter] + " "
+        ax1.plot(df[metric], label=label)
+
+    subtitle = ""
+    for key, value in model_info["hyperparameters"].items():
+        if key not in hyperparameters_compared:
+            subtitle += key + "=" + value + ", " 
+
+    ax1.set(title=subtitle, xlabel='Epoch', ylabel=metric)
+    ax1.set_xlim([epoch_min, epoch_max])
+    ax1.set_ylim(bottom =y_min, top=y_max)
+    ax1.legend()
+
+    if feature_extract_epochs is not None:
+        ax1.axvline(feature_extract_epochs-1, color='green', label='Start Fine Tuning')
+        #ax1.text(feature_extract_epochs-1, -0.06, str(feature_extract_epochs-1))
+        ax1.legend()
+    
+    return fig
+
+
 def plot_grouped_2bars(scalars, scalarlabels, xticklabels, title=None, xlabel=None, ylabel=None):
     x = np.arange(len(xticklabels))  # the label locations
     width = 0.35  # the width of the bars

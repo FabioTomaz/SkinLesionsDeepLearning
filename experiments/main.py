@@ -6,7 +6,7 @@ import efficientnet.tfkeras
 from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
 from tensorflow.keras import utils
-from data import load_isic_training_data, load_isic_training_and_out_dist_data, train_validation_split, compute_class_weight_dict, get_dataframe_from_img_folder
+from data.data import load_isic_training_data, load_isic_training_and_out_dist_data, train_validation_split, compute_class_weight_dict, get_dataframe_from_img_folder
 from vanilla_classifier import VanillaClassifier
 from transfer_learn_classifier import TransferLearnClassifier
 from metrics import balanced_accuracy
@@ -18,7 +18,11 @@ def main():
     parser = argparse.ArgumentParser(description='ISIC-2019 Skin Lesion Classifiers')
     parser.add_argument('data', metavar='DIR', help='path to data folder')
     parser.add_argument('--batchsize', type=int, help='Batch size (default: %(default)s)', default=32)
+    parser.add_argument('--felr', type=float, help='Feature extractor learning rate (default: %(default)s)', default=1e-3)
+    parser.add_argument('--ftlr', type=float, help='Fine tuning learning rate (default: %(default)s)', default=1e-5)
+    parser.add_argument('--dropout', type=float, help='Dropout rate (default: %(default)s)')    
     parser.add_argument('--maxqueuesize', type=int, help='Maximum size for the generator queue (default: %(default)s)', default=10)
+    parser.add_argument('--feepochs', type=int, help='Feature extractor epochs (default: %(default)s)', default=3)    
     parser.add_argument('--epoch', type=int, help='Number of epochs (default: %(default)s)', default=100)
     parser.add_argument('--model', 
                         dest='models', 
@@ -45,7 +49,7 @@ def main():
                         help='Models')
     parser.add_argument('--training', dest='training', action='store_true', help='Train models')
     parser.add_argument('--predval', dest='predval', action='store_true', help='Predict validation set')
-    parser.add_argument('--predtest', dest='predtest', action='store_true', help='Predict the test data which contains 8238 JPEG images of skin lesions.')
+    parser.add_argument('--predtest', dest='predtest', action='store_true', help='Predict the test data which contains images of skin lesions.')
     parser.add_argument('--predvalresultfolder', help='Name of the prediction result folder for validation set (default: %(default)s)', default='val_predict_results')
     parser.add_argument('--predtestresultfolder', help='Name of the prediction result folder for test data (default: %(default)s)', default='test_predict_results')
     parser.add_argument('--modelfolder', help='Name of the model folder (default: %(default)s)', default='models')
@@ -62,6 +66,10 @@ def main():
     model_folder = args.modelfolder
     batch_size = args.batchsize
     max_queue_size = args.maxqueuesize
+    felr = args.felr
+    ftlr = args.ftlr    
+    dropout = args.dropout
+    fe_epochs = args.feepochs
     epoch_num = args.epoch
 
     # ISIC data
@@ -98,7 +106,21 @@ def main():
         model_param_map = get_transfer_model_param_map() 
         base_model_params = [model_param_map[x] for x in transfer_models]
         if args.training:
-            train_transfer_learning(base_model_params, df_train, df_val, category_num, class_weight_dict, batch_size, max_queue_size, epoch_num, model_folder)
+            train_transfer_learning(
+                base_model_params, 
+                df_train, 
+                df_val, 
+                category_num, 
+                class_weight_dict, 
+                batch_size, 
+                max_queue_size, 
+                epoch_num, 
+                model_folder,
+                fe_epochs,
+                dropout,
+                felr,
+                ftlr
+            )
         for base_model_param in base_model_params:
             models_to_predict.append({'model_name': base_model_param.class_name,
                                       'input_size': base_model_param.input_size,
@@ -162,7 +184,17 @@ def main():
         df_ensemble.to_csv(os.path.join(pred_result_folder_test, "Ensemble_{}.csv".format(postfix)), index=False)
 
 
-def train_vanilla(df_train, df_val, num_classes, class_weight_dict, batch_size, max_queue_size, epoch_num, input_size, model_folder):
+def train_vanilla(
+    df_train, 
+    df_val, 
+    num_classes, 
+    class_weight_dict, 
+    batch_size, 
+    max_queue_size, 
+    epoch_num, 
+    input_size, 
+    model_folder
+):
     workers = os.cpu_count()
 
     classifier = VanillaClassifier(
@@ -186,7 +218,21 @@ def train_vanilla(df_train, df_val, num_classes, class_weight_dict, batch_size, 
     K.clear_session()
 
 
-def train_transfer_learning(base_model_params, df_train, df_val, num_classes, class_weight_dict, batch_size, max_queue_size, epoch_num, model_folder):
+def train_transfer_learning(
+    base_model_params, 
+    df_train, 
+    df_val, 
+    num_classes, 
+    class_weight_dict, 
+    batch_size, 
+    max_queue_size, 
+    epoch_num, 
+    model_folder,
+    fe_epochs,
+    dropout,
+    felr,
+    ftlr
+):
     workers = os.cpu_count()
 
     for model_param in base_model_params:
@@ -195,7 +241,10 @@ def train_transfer_learning(base_model_params, df_train, df_val, num_classes, cl
             base_model_param=model_param,
             fc_layers=[512], # e.g. [512]
             num_classes=num_classes,
-            dropout=0.3, # e.g. 0.3
+            dropout=dropout, 
+            feature_extract_epochs= fe_epochs,
+            feature_extract_start_lr=felr, 
+            fine_tuning_start_lr=ftlr,
             batch_size=batch_size,
             max_queue_size=max_queue_size,
             image_data_format=K.image_data_format(),
