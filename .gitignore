@@ -142,6 +142,7 @@ experiments/softmax_scores/
 # Dataset
 experiments/data/isic_archive
 experiments/data/isic2019
+experiments/data/isic2018
 
 # DG Paper
 papers/
