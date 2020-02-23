@@ -5,7 +5,7 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.utils import class_weight
 
-def load_isic_training_data(image_folder, ground_truth_file):
+def load_isic_training_data(image_folder, ground_truth_file, test=False):
     df_ground_truth = pd.read_csv(ground_truth_file)
     # Category names
     known_category_names = list(df_ground_truth.columns.values[1:9])
@@ -14,7 +14,13 @@ def load_isic_training_data(image_folder, ground_truth_file):
     # Add path and category columns
     df_ground_truth['path'] = df_ground_truth.apply(lambda row : os.path.join(image_folder, row['image']+'.jpg'), axis=1)
     df_ground_truth['category'] = np.argmax(np.array(df_ground_truth.iloc[:,1:10]), axis=1)
-    return df_ground_truth, known_category_names, unknown_category_name
+
+    if test:
+        res = df_ground_truth[['image','category']]
+    else:
+        res = df_ground_truth
+
+    return res, known_category_names, unknown_category_name
 
 def load_isic_training_and_out_dist_data(isic_image_folder, ground_truth_file, out_dist_image_folder):
     """ISIC training data and Out-of-distribution data are combined"""

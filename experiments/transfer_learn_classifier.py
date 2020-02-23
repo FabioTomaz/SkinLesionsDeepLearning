@@ -7,6 +7,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 from tensorflow import distribute
+from utils import formated_hyperparameter_str
 
 class TransferLearnClassifier(LesionClassifier):
     """Skin lesion classifier based on transfer learning.
@@ -97,17 +98,30 @@ class TransferLearnClassifier(LesionClassifier):
         )
 
         super().__init__(
-            model_folder=model_folder, input_size=base_model_param.input_size, preprocessing_func=base_model_param.preprocessing_func, class_weight=class_weight, num_classes=num_classes,
-            image_data_format=image_data_format, batch_size=batch_size, max_queue_size=max_queue_size,
-            image_paths_train=image_paths_train, categories_train=categories_train,
-            image_paths_val=image_paths_val, categories_val=categories_val)
+            model_folder=model_folder, 
+            input_size=base_model_param.input_size, 
+            preprocessing_func=base_model_param.preprocessing_func, 
+            class_weight=class_weight, 
+            num_classes=num_classes,
+            image_data_format=image_data_format, 
+            batch_size=batch_size, 
+            max_queue_size=max_queue_size,
+            image_paths_train=image_paths_train, 
+            categories_train=categories_train,
+            image_paths_val=image_paths_val, 
+            categories_val=categories_val
+        )
 
     def train(self, epoch_num, workers=1):
-        felr_str = format(self.start_lr, 'f')
-        ftlr_str = format(self.fine_tuning_start_lr, 'f')
-        dropout_str = "None" if self.dropout == None else format(self.dropout, 'f')
-        l2_str = "None" if self.l2 == None else format(self.l2, 'f')
-        hyperparameter_string = f'feepochs_{self.feature_extract_epochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{self.batch_size}'
+        hyperparameter_string = formated_hyperparameter_str(
+            self.feature_extract_epochs,
+            self.start_lr,
+            self.fine_tuning_start_lr,
+            self.l2,
+            self.dropout,
+            self.batch_size,
+            len(self.image_paths_train) + len(self.image_paths_val)
+        )
 
         # Checkpoint Callbacks
         checkpoints = super()._create_checkpoint_callbacks(hyperparameter_string)

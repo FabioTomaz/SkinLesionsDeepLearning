@@ -12,7 +12,7 @@ from transfer_learn_classifier import TransferLearnClassifier
 from metrics import balanced_accuracy
 from base_model_param import get_transfer_model_param_map
 from lesion_classifier import LesionClassifier
-from utils import ensemble_predictions
+from utils import ensemble_predictions, formated_hyperparameter_str
 
 def main():
     parser = argparse.ArgumentParser(description='ISIC-2019 Skin Lesion Classifiers')
@@ -29,6 +29,8 @@ def main():
                         nargs='*', 
                         choices=[
                             'Vanilla', 
+                            'DenseNet121',
+                            'DenseNet169',
                             'DenseNet201', 
                             'Xception', 
                             'NASNetLarge', 
@@ -71,6 +73,7 @@ def main():
     dropout = args.dropout
     fe_epochs = args.feepochs
     epoch_num = args.epoch
+    lmbda = None
 
     # ISIC data
     training_image_folder = os.path.join(data_folder, 'ISIC_2019_Training_Input')
@@ -131,24 +134,63 @@ def main():
         os.makedirs(pred_result_folder_val, exist_ok=True)
         # Save Ground Truth of validation set
         val_ground_truth_file_path = os.path.join(pred_result_folder_val, 'Validation_Set_GroundTruth.csv')
-        df_val.drop(columns=['path', 'category']).to_csv(path_or_buf=val_ground_truth_file_path, index=False)
+        df_val.drop(columns=['path', 'category']).to_csv(
+            path_or_buf=val_ground_truth_file_path, 
+            index=False
+        )
         print("Save \"{}\"".format(val_ground_truth_file_path))
 
+        hyperparameter_str = formated_hyperparameter_str(
+            fe_epochs,
+            felr,
+            ftlr,
+            lmbda,
+            dropout,
+            batch_size
+        )
         postfixes = ['best_balanced_acc', 'best_loss', 'latest']
         for postfix in postfixes:
             for m in models_to_predict:
-                model_filepath = os.path.join(model_folder, "{}_{}.hdf5".format(m['model_name'], postfix))
+                model_filepath = os.path.join(
+                    model_folder,
+                    m["model_name"],
+                    hyperparameter_str, 
+                    "{}.hdf5".format(postfix)
+                )
                 if os.path.exists(model_filepath):
                     print("===== Predict validation set using \"{}_{}\" model =====".format(m['model_name'], postfix))
                     model = load_model(filepath=model_filepath, custom_objects={'balanced_accuracy': balanced_accuracy(category_num)})
-                    LesionClassifier.predict_dataframe(model=model, df=df_val,
-                                                       category_names=category_names,
-                                                       augmentation_pipeline=LesionClassifier.create_aug_pipeline_val(m['input_size']),
-                                                       preprocessing_function=m['preprocessing_function'],
-                                                       batch_size=batch_size,
-                                                       workers=workers,
-                                                       softmax_save_file_name=os.path.join(pred_result_folder_val, "{}_{}.csv").format(m['model_name'], postfix),
-                                                       logit_save_file_name=os.path.join(pred_result_folder_val, "{}_{}_logit.csv").format(m['model_name'], postfix))
+                    
+                    pred_folder = os.path.join(
+                        pred_result_folder_val, 
+                        m["model_name"],
+                        hyperparameter_str
+                    )
+                    
+                    if not os.path.exists(pred_folder):
+                        os.makedirs(pred_folder)
+
+                    LesionClassifier.predict_dataframe(
+                        model=model, 
+                        df=df_val,
+                        category_names=category_names,
+                        augmentation_pipeline=LesionClassifier.create_aug_pipeline_val(m['input_size']),
+                        preprocessing_function=m['preprocessing_function'],
+                        batch_size=batch_size,
+                        workers=workers,
+                        softmax_save_file_name=os.path.join(
+                                pred_result_folder_val, 
+                                m["model_name"],
+                                hyperparameter_str, 
+                                "{}.csv"
+                            ).format(postfix),
+                        logit_save_file_name=os.path.join(
+                                pred_result_folder_val, 
+                                m["model_name"],
+                                hyperparameter_str,                             
+                                "{}_logit.csv"
+                            ).format(postfix)
+                    )
                     del model
                     K.clear_session()
                 else:
@@ -159,28 +201,70 @@ def main():
         os.makedirs(pred_result_folder_test, exist_ok=True)
         df_test = get_dataframe_from_img_folder(test_image_folder, has_path_col=True)
         df_test.drop(columns=['path']).to_csv(os.path.join(pred_result_folder_test, 'ISIC_2019_Test.csv'), index=False)
+        
+        hyperparameter_str = formated_hyperparameter_str(
+            fe_epochs,
+            felr,
+            ftlr,
+            lmbda,
+            dropout,
+            batch_size
+        )
         postfix = 'best_balanced_acc'
         for m in models_to_predict:
-            model_filepath = os.path.join(model_folder, "{}_{}.hdf5".format(m['model_name'], postfix))
+            model_filepath = os.path.join(
+                model_folder, 
+                m["model_name"],
+                hyperparameter_str,
+                "{}.hdf5".format(postfix)
+            )
             if os.path.exists(model_filepath):
                 print("===== Predict test data using \"{}_{}\" model =====".format(m['model_name'], postfix))
+                
+                pred_folder = os.path.join(
+                    pred_result_folder_test, 
+                    m["model_name"],
+                    hyperparameter_str
+                )
+                
+                if not os.path.exists(pred_folder):
+                    os.makedirs(pred_folder)
+                
                 model = load_model(filepath=model_filepath, custom_objects={'balanced_accuracy': balanced_accuracy(category_num)})
-                LesionClassifier.predict_dataframe(model=model, df=df_test,
-                                                   category_names=category_names,
-                                                   augmentation_pipeline=LesionClassifier.create_aug_pipeline_val(m['input_size']),
-                                                   preprocessing_function=m['preprocessing_function'],
-                                                   batch_size=batch_size,
-                                                   workers=workers,
-                                                   softmax_save_file_name=os.path.join(pred_result_folder_test, "{}_{}.csv").format(m['model_name'], postfix),
-                                                   logit_save_file_name=os.path.join(pred_result_folder_test, "{}_{}_logit.csv").format(m['model_name'], postfix))
+                LesionClassifier.predict_dataframe(
+                    model=model, 
+                    df=df_test,
+                    category_names=category_names,
+                    augmentation_pipeline=LesionClassifier.create_aug_pipeline_val(m['input_size']),
+                    preprocessing_function=m['preprocessing_function'],
+                    batch_size=batch_size,
+                    workers=workers,
+                    softmax_save_file_name=os.path.join(
+                            pred_result_folder_test, 
+                            m["model_name"],
+                            hyperparameter_str,   
+                            "{}.csv"
+                        ).format(postfix),
+                    logit_save_file_name=os.path.join(
+                            pred_result_folder_test,
+                            m["model_name"],
+                            hyperparameter_str,    
+                            "{}_logit.csv"
+                        ).format(postfix)
+                )
                 del model
                 K.clear_session()
             else:
                 print("\"{}\" doesn't exist".format(model_filepath))
 
         # Ensemble Models' Predictions on Test Data
-        df_ensemble = ensemble_predictions(result_folder=pred_result_folder_test, category_names=category_names, save_file=False,
-                                           model_names=transfer_models, postfixes=[postfix]).drop(columns=['pred_category'])
+        df_ensemble = ensemble_predictions(
+            result_folder=pred_result_folder_test, 
+            category_names=category_names, 
+            save_file=False,
+            model_names=transfer_models, 
+            postfixes=[postfix]
+        ).drop(columns=['pred_category'])
         df_ensemble.to_csv(os.path.join(pred_result_folder_test, "Ensemble_{}.csv".format(postfix)), index=False)
 
 

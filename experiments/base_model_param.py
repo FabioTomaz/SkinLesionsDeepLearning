@@ -17,6 +17,14 @@ BaseModelParam = NamedTuple('BaseModelParam', [
 def get_transfer_model_param_map():
     """MODELS"""
     models = {
+        'DenseNet121': BaseModelParam(module_name='tensorflow.keras.applications.densenet',
+                                      class_name='DenseNet121',
+                                      input_size=(224, 224),
+                                      preprocessing_func=preprocess_input_trainset),
+        'DenseNet169': BaseModelParam(module_name='tensorflow.keras.applications.densenet',
+                                      class_name='DenseNet169',
+                                      input_size=(224, 224),
+                                      preprocessing_func=preprocess_input_trainset),
         'DenseNet201': BaseModelParam(module_name='tensorflow.keras.applications.densenet',
                                       class_name='DenseNet201',
                                       input_size=(224, 224),

@@ -122,9 +122,20 @@ class LesionClassifier():
         return p_val
 
     @staticmethod
-    def predict_dataframe(model, df, x_col='path', y_col='category', id_col='image', category_names=None,
-                          augmentation_pipeline=None, preprocessing_function=None,
-                          batch_size=32, workers=1, softmax_save_file_name=None, logit_save_file_name=None):
+    def predict_dataframe(
+        model, 
+        df, 
+        x_col='path', 
+        y_col='category', 
+        id_col='image', 
+        category_names=None,
+        augmentation_pipeline=None, 
+        preprocessing_function=None,
+        batch_size=32, 
+        workers=1, 
+        softmax_save_file_name=None, 
+        logit_save_file_name=None
+    ):
         generator = ImageIterator(
             image_paths=df[x_col].tolist(),
             labels=None,

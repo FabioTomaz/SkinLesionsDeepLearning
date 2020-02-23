@@ -157,9 +157,13 @@ def preprocess_input_2(x, data_format=None, **kwargs):
             x[..., 2] /= std[2]
     return x
 
-def ensemble_predictions(result_folder, category_names, save_file=True,
-                         model_names=['DenseNet201', 'Xception'],
-                         postfixes=['best_balanced_acc', 'best_loss', 'latest']):
+def ensemble_predictions(
+    result_folder, 
+    category_names, 
+    save_file=True,
+    model_names=['DenseNet201', 'Xception'],
+    postfixes=['best_balanced_acc', 'best_loss', 'latest']
+):
     """ Ensemble predictions of different models. """
     for postfix in postfixes:
         # Load models' predictions
@@ -210,3 +214,18 @@ def logistic(x, x0=0, L=1, k=1):
     """
 
     return L / (1 + np.exp(-k*(x-x0)))
+
+def formated_hyperparameter_str(
+    feepochs,
+    felr,
+    ftlr,
+    lmda,
+    dropout,
+    batch_size,
+    samples
+):
+    felr_str = format(felr, 'f')
+    ftlr_str = format(ftlr, 'f')
+    dropout_str = "None" if dropout == None else format(dropout, 'f')
+    l2_str = "None" if lmda == None else format(lmda, 'f')
+    return f'samples_{samples}-feepochs_{feepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}'
