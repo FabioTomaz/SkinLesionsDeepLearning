@@ -168,6 +168,17 @@ class LesionClassifier():
         df_softmax = pd.DataFrame(softmax_probs, columns=category_names)
         if y_col in df.columns:
             df_softmax[y_col] = df[y_col].to_numpy()
+        unk_probs = []
+        for probs in softmax_probs:
+            if max(probs) > 0.5:
+                unk_probs.append(0.0)
+            else:
+                for i in range(len(probs)):
+                    probs[i] = 0.0
+                unk_probs.append(1.0)
+
+        df_softmax['UNK'] = unk_probs
+        # TODO!!!! 
         df_softmax['pred_'+y_col] = np.argmax(softmax_probs, axis=1)
         df_softmax.insert(0, id_col, df[id_col].to_numpy())
         if softmax_save_file_name is not None:

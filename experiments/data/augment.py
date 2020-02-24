@@ -60,7 +60,7 @@ def is_file(string):
     else:
         raise FileNotFoundError(string)
 
-def load_image(filename, target_size=(224,224)):
+def load_image(filename, target_size=(500,500)):
     assert target_size[0] == target_size[1]
 
     def _crop(img):
@@ -108,8 +108,8 @@ def load_image(filename, target_size=(224,224)):
         return img_ybr.convert('RGB')
 
     img = PIL.Image.open(filename).convert('RGB')
-    #img = _crop(img)
-    #img = _resize(img, target_size)
+    img = _crop(img)
+    img = _resize(img, target_size)
     #img = _correct(img)
     return img
 

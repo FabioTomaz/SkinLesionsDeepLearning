@@ -146,7 +146,8 @@ def main():
             ftlr,
             lmbda,
             dropout,
-            batch_size
+            batch_size,
+            len(df_val['path'].tolist()) + len(df_train['path'].tolist())
         )
         postfixes = ['best_balanced_acc', 'best_loss', 'latest']
         for postfix in postfixes:
@@ -208,7 +209,8 @@ def main():
             ftlr,
             lmbda,
             dropout,
-            batch_size
+            batch_size,
+            len(df_val['path'].tolist()) + len(df_train['path'].tolist())
         )
         postfix = 'best_balanced_acc'
         for m in models_to_predict:
@@ -260,12 +262,20 @@ def main():
         # Ensemble Models' Predictions on Test Data
         df_ensemble = ensemble_predictions(
             result_folder=pred_result_folder_test, 
+            hyperparameter_str=hyperparameter_str, 
             category_names=category_names, 
             save_file=False,
             model_names=transfer_models, 
             postfixes=[postfix]
         ).drop(columns=['pred_category'])
-        df_ensemble.to_csv(os.path.join(pred_result_folder_test, "Ensemble_{}.csv".format(postfix)), index=False)
+
+        df_ensemble.to_csv(
+            os.path.join(
+                pred_result_folder_test, 
+                f"Ensemble_{postfix}.csv"
+            ), 
+            index=False
+        )
 
 
 def train_vanilla(

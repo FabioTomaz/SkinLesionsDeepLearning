@@ -159,6 +159,7 @@ def preprocess_input_2(x, data_format=None, **kwargs):
 
 def ensemble_predictions(
     result_folder, 
+    hyperparameter_str,
     category_names, 
     save_file=True,
     model_names=['DenseNet201', 'Xception'],
@@ -167,19 +168,35 @@ def ensemble_predictions(
     """ Ensemble predictions of different models. """
     for postfix in postfixes:
         # Load models' predictions
-        df_dict = {model_name : pd.read_csv(os.path.join(result_folder, "{}_{}.csv".format(model_name, postfix))) for model_name in model_names}
+        df_dict = {
+            model_name : pd.read_csv(
+                os.path.join(
+                    result_folder, 
+                    model_name, 
+                    hyperparameter_str, 
+                    f"{postfix}.csv"
+                )
+            ) for i, model_name in enumerate(model_names)
+        }
 
         # Check row number
         for i in range(1, len(model_names)):
             if len(df_dict[model_names[0]]) != len(df_dict[model_names[i]]):
-                raise ValueError("Row numbers are inconsistent between {} and {}".format(model_names[0], model_names[i]))
+                raise ValueError(
+                    f"Row numbers are inconsistent between {model_names[0]} and {model_names[i]}"
+                )
 
         # Check whether values of image column are consistent
         for i in range(1, len(model_names)):
             inconsistent_idx = np.where(df_dict[model_names[0]].image != df_dict[model_names[i]].image)[0]
             if len(inconsistent_idx) > 0:
-                raise ValueError("{} values of image column are inconsistent between {} and {}"
-                                .format(len(inconsistent_idx), model_names[0], model_names[i]))
+                raise ValueError(
+                    "{} values of image column are inconsistent between {} and {}".format(
+                        len(inconsistent_idx), 
+                        model_names[0], 
+                        model_names[i]
+                    )
+                )
 
         # Copy the first model's predictions
         df_ensemble = df_dict[model_names[0]].drop(columns=['pred_category'])
@@ -198,9 +215,12 @@ def ensemble_predictions(
 
         # Save Ensemble Predictions
         if save_file:
-            ensemble_file = os.path.join(result_folder, "Ensemble_{}.csv".format(postfix))
+            ensemble_file = os.path.join(
+                result_folder, 
+                f"Ensemble_{postfix}.csv"
+            )
             df_ensemble.to_csv(path_or_buf=ensemble_file, index=False)
-            print('Save "{}"'.format(ensemble_file))
+            print(f"Save '{ensemble_file}'")
     return df_ensemble
 
 def logistic(x, x0=0, L=1, k=1):
