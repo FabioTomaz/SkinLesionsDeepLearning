@@ -70,8 +70,11 @@ def preprocess_input(x, data_format=None, **kwargs):
     # Mean:[0.6236094091893962, 0.5198354883713194, 0.5038435406338101]
     # STD:[0.2421814437693499, 0.22354427793687906, 0.2314805420919389]
     x /= 255.
-    mean = [0.6236, 0.5198, 0.5038]
-    std = [0.2422, 0.2235, 0.2315]
+    #mean = [0.6236, 0.5198, 0.5038]
+    #std = [0.2422, 0.2235, 0.2315]
+    
+    np.mean(x, axis=(0, 1))
+    np.std(x, axis=(0, 1))
 
     if data_format is None:
         data_format = K.image_data_format()
@@ -249,3 +252,12 @@ def formated_hyperparameter_str(
     dropout_str = "None" if dropout == None else format(dropout, 'f')
     l2_str = "None" if lmda == None else format(lmda, 'f')
     return f'samples_{samples}-feepochs_{feepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}'
+
+def get_hyperparameters_from_str(hyperparameter_str):
+    hyperparameter_combination = hyperparameter_str.split("-")
+    hyperparameters = {}
+    for hyperparameter in hyperparameter_combination:
+        split=hyperparameter.split("_")
+        if(len(split)==2):
+            hyperparameters[split[0]] = split[1]
+    return hyperparameters

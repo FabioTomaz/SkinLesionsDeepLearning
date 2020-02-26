@@ -159,8 +159,12 @@ class TransferLearnClassifier(LesionClassifier):
             layer.trainable = True
 
         #with self.mirrored_strategy.scope():
-            # Compile the model
-        self._model.compile(optimizer=Adam(lr=self.fine_tuning_start_lr), loss='categorical_crossentropy', metrics=self.metrics)
+        # Compile the model
+        self._model.compile(
+            optimizer=Adam(lr=self.fine_tuning_start_lr), 
+            loss='categorical_crossentropy', 
+            metrics=self.metrics
+        )
         self._model.summary()
 
         # Re-create Checkpoint Callbacks

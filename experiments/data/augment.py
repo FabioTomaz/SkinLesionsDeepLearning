@@ -36,7 +36,18 @@ def augment(img, target_size, i):
         img = f(load_image(img))
     return img
 
-def standardize(x, mean, std):
+
+# Mean and STD calculated over the Training Set
+# Mean:[0.6236094091893962, 0.5198354883713194, 0.5038435406338101]
+# STD:[0.2421814437693499, 0.22354427793687906, 0.2314805420919389]
+def standardize(
+    x, 
+    mean=[0.6236, 0.5198, 0.5038], 
+    std=[0.2422, 0.2235, 0.2315]
+):
+
+    x /= 255.
+
     x[..., 0] -= mean[0]
     x[..., 1] -= mean[1]
     x[..., 2] -= mean[2]
@@ -84,33 +95,16 @@ def load_image(filename, target_size=(500,500)):
     def _correct(img):
         """
         Normalize PIL image
-
-        Normalizes luminance to (mean,std)=(0,1), and applies a [1%, 99%] contrast stretch
         """
-        img_y, img_b, img_r = img.convert('YCbCr').split()
+        arr = np.array(img).astype(float)
+        new_img = PIL.Image.fromarray(standardize(arr).astype(np.uint8),'RGB')
 
-        img_y_np = np.asarray(img_y).astype(float)
-
-        img_y_np /= 255
-        img_y_np -= img_y_np.mean()
-        img_y_np /= img_y_np.std()
-        scale = np.max([np.abs(np.percentile(img_y_np, 1.0)),
-                        np.abs(np.percentile(img_y_np, 99.0))])
-        img_y_np = img_y_np / scale
-        img_y_np = np.clip(img_y_np, -1.0, 1.0)
-        img_y_np = (img_y_np + 1.0) / 2.0
-
-        img_y_np = (img_y_np * 255 + 0.5).astype(np.uint8)
-
-        img_y = PIL.Image.fromarray(img_y_np)
-
-        img_ybr = PIL.Image.merge('YCbCr', (img_y, img_b, img_r))
-        return img_ybr.convert('RGB')
+        return new_img
 
     img = PIL.Image.open(filename).convert('RGB')
     img = _crop(img)
     img = _resize(img, target_size)
-    #img = _correct(img)
+    img = _correct(img)
     return img
 
 def undersample(df_ground_truth, count_per_category):

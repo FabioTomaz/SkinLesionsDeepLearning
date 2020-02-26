@@ -134,7 +134,8 @@ class LesionClassifier():
         batch_size=32, 
         workers=1, 
         softmax_save_file_name=None, 
-        logit_save_file_name=None
+        logit_save_file_name=None,
+        unk_class=None
     ):
         generator = ImageIterator(
             image_paths=df[x_col].tolist(),
@@ -152,8 +153,14 @@ class LesionClassifier():
         # https://keras.io/getting-started/faq/#how-can-i-obtain-the-output-of-an-intermediate-layer
         intermediate_layer_model = Model(inputs=model.input,
                                          outputs=model.get_layer('dense_pred').output)
-        logits = intermediate_layer_model.predict_generator(generator, verbose=1, workers=workers)
-        softmax_probs = softmax(logits).astype(float) # explicitly convert softmax values to floating point because 0 and 1 are invalid, but 0.0 and 1.0 are valid
+        logits = intermediate_layer_model.predict_generator(
+            generator, 
+            verbose=1, 
+            workers=workers
+        )
+
+        # explicitly convert softmax values to floating point because 0 and 1 are invalid, but 0.0 and 1.0 are valid
+        softmax_probs = softmax(logits).astype(float) 
 
         # logits
         df_logit = pd.DataFrame(logits, columns=category_names)
@@ -164,21 +171,22 @@ class LesionClassifier():
         if logit_save_file_name is not None:
             df_logit.to_csv(path_or_buf=logit_save_file_name, index=False)
 
+        # Apply softmax threshold to determine unknown class
+        if unk_class:
+            unknown_softmax_values = np.zeros((len(softmax_probs),1))
+            for i in range(len(softmax_probs)):
+                if max(softmax_probs[i]) < 0.5:
+                    for j in range(len(softmax_probs[i])):
+                        softmax_probs[i][j] = 0.0
+                    unknown_softmax_values[i] =  1.0
+            softmax_probs = np.append(softmax_probs, unknown_softmax_values, axis=1)
+            category_names.append(unk_class)
+
         # softmax probabilities
         df_softmax = pd.DataFrame(softmax_probs, columns=category_names)
         if y_col in df.columns:
             df_softmax[y_col] = df[y_col].to_numpy()
-        unk_probs = []
-        for probs in softmax_probs:
-            if max(probs) > 0.5:
-                unk_probs.append(0.0)
-            else:
-                for i in range(len(probs)):
-                    probs[i] = 0.0
-                unk_probs.append(1.0)
-
-        df_softmax['UNK'] = unk_probs
-        # TODO!!!! 
+        
         df_softmax['pred_'+y_col] = np.argmax(softmax_probs, axis=1)
         df_softmax.insert(0, id_col, df[id_col].to_numpy())
         if softmax_save_file_name is not None:

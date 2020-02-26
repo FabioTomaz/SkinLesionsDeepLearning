@@ -51,9 +51,18 @@ def main():
                         help='Models')
     parser.add_argument('--training', dest='training', action='store_true', help='Train models')
     parser.add_argument('--predval', dest='predval', action='store_true', help='Predict validation set')
-    parser.add_argument('--predtest', dest='predtest', action='store_true', help='Predict the test data which contains images of skin lesions.')
-    parser.add_argument('--predvalresultfolder', help='Name of the prediction result folder for validation set (default: %(default)s)', default='val_predict_results')
-    parser.add_argument('--predtestresultfolder', help='Name of the prediction result folder for test data (default: %(default)s)', default='test_predict_results')
+    parser.add_argument('--predtest', dest='predtest', action='store_true', help='Predict the test data.')
+    parser.add_argument('--unknown', dest='unknown', action='store_true', help='Predict unknown class.')
+    parser.add_argument(
+        '--predvalresultfolder', 
+        help='Name of the prediction result folder for validation set (default: %(default)s)', 
+        default='val_predict_results'
+    )
+    parser.add_argument(
+        '--predtestresultfolder', 
+        help='Name of the prediction result folder for test data (default: %(default)s)', 
+        default='test_predict_results'
+    )
     parser.add_argument('--modelfolder', help='Name of the model folder (default: %(default)s)', default='models')
     args = parser.parse_args()
     print(args)
@@ -179,6 +188,7 @@ def main():
                         preprocessing_function=m['preprocessing_function'],
                         batch_size=batch_size,
                         workers=workers,
+                        unk_class=unknown_category_name if args.unknown else None,
                         softmax_save_file_name=os.path.join(
                                 pred_result_folder_val, 
                                 m["model_name"],
@@ -241,6 +251,7 @@ def main():
                     preprocessing_function=m['preprocessing_function'],
                     batch_size=batch_size,
                     workers=workers,
+                    unk_class=unknown_category_name if args.unknown else None,
                     softmax_save_file_name=os.path.join(
                             pred_result_folder_test, 
                             m["model_name"],
