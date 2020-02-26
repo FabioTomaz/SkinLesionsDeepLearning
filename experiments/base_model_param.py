@@ -28,7 +28,7 @@ def get_transfer_model_param_map():
         'DenseNet201': BaseModelParam(module_name='tensorflow.keras.applications.densenet',
                                       class_name='DenseNet201',
                                       input_size=(224, 224),
-                                      preprocessing_func=None),
+                                      preprocessing_func=preprocess_input_trainset),
         'Xception': BaseModelParam(module_name='tensorflow.keras.applications.xception',
                                    class_name='Xception',
                                    input_size=(299, 299),
