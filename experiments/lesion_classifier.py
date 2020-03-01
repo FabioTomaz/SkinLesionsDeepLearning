@@ -135,7 +135,7 @@ class LesionClassifier():
         workers=1, 
         softmax_save_file_name=None, 
         logit_save_file_name=None,
-        unk_class=None
+        unknown_thresh=None
     ):
         generator = ImageIterator(
             image_paths=df[x_col].tolist(),
@@ -172,15 +172,14 @@ class LesionClassifier():
             df_logit.to_csv(path_or_buf=logit_save_file_name, index=False)
 
         # Apply softmax threshold to determine unknown class
-        if unk_class:
+        if unknown_thresh:
             unknown_softmax_values = np.zeros((len(softmax_probs),1))
             for i in range(len(softmax_probs)):
-                if max(softmax_probs[i]) < 0.5:
+                if max(softmax_probs[i]) < unknown_thresh:
                     for j in range(len(softmax_probs[i])):
                         softmax_probs[i][j] = 0.0
                     unknown_softmax_values[i] =  1.0
             softmax_probs = np.append(softmax_probs, unknown_softmax_values, axis=1)
-            category_names.append(unk_class)
 
         # softmax probabilities
         df_softmax = pd.DataFrame(softmax_probs, columns=category_names)

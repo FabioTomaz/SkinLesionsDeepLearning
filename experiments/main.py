@@ -52,7 +52,7 @@ def main():
     parser.add_argument('--training', dest='training', action='store_true', help='Train models')
     parser.add_argument('--predval', dest='predval', action='store_true', help='Predict validation set')
     parser.add_argument('--predtest', dest='predtest', action='store_true', help='Predict the test data.')
-    parser.add_argument('--unknown', dest='unknown', action='store_true', help='Predict unknown class.')
+    parser.add_argument('--unknown', type=int, help='Threshold to predict unknown class with.', default=None)
     parser.add_argument(
         '--predvalresultfolder', 
         help='Name of the prediction result folder for validation set (default: %(default)s)', 
@@ -174,7 +174,8 @@ def main():
                     pred_folder = os.path.join(
                         pred_result_folder_val, 
                         m["model_name"],
-                        hyperparameter_str
+                        hyperparameter_str,
+                        f"unknown_{args.unknown}" if args.unknown else "no_unknown",
                     )
                     
                     if not os.path.exists(pred_folder):
@@ -183,24 +184,13 @@ def main():
                     LesionClassifier.predict_dataframe(
                         model=model, 
                         df=df_val,
-                        category_names=category_names,
+                        category_names=category_names if args.unknown else category_names+unknown_category_name,
                         augmentation_pipeline=LesionClassifier.create_aug_pipeline_val(m['input_size']),
                         preprocessing_function=m['preprocessing_function'],
                         batch_size=batch_size,
                         workers=workers,
-                        unk_class=unknown_category_name if args.unknown else None,
-                        softmax_save_file_name=os.path.join(
-                                pred_result_folder_val, 
-                                m["model_name"],
-                                hyperparameter_str, 
-                                "{}.csv"
-                            ).format(postfix),
-                        logit_save_file_name=os.path.join(
-                                pred_result_folder_val, 
-                                m["model_name"],
-                                hyperparameter_str,                             
-                                "{}_logit.csv"
-                            ).format(postfix)
+                        unknown_thresh=args.unknown,
+                        softmax_save_file_name=os.path.join(pred_folder, f"{postfix}.csv")
                     )
                     del model
                     K.clear_session()
@@ -236,57 +226,51 @@ def main():
                 pred_folder = os.path.join(
                     pred_result_folder_test, 
                     m["model_name"],
-                    hyperparameter_str
+                    hyperparameter_str,
+                    f"unknown_{args.unknown}" if args.unknown else "no_unknown",
                 )
                 
                 if not os.path.exists(pred_folder):
                     os.makedirs(pred_folder)
                 
-                model = load_model(filepath=model_filepath, custom_objects={'balanced_accuracy': balanced_accuracy(category_num)})
+                model = load_model(
+                    filepath=model_filepath, 
+                    custom_objects={'balanced_accuracy': balanced_accuracy(category_num)}
+                )
                 LesionClassifier.predict_dataframe(
                     model=model, 
                     df=df_test,
-                    category_names=category_names,
+                    category_names=category_names if args.unknown else category_names+unknown_category_name,
                     augmentation_pipeline=LesionClassifier.create_aug_pipeline_val(m['input_size']),
                     preprocessing_function=m['preprocessing_function'],
                     batch_size=batch_size,
                     workers=workers,
-                    unk_class=unknown_category_name if args.unknown else None,
-                    softmax_save_file_name=os.path.join(
-                            pred_result_folder_test, 
-                            m["model_name"],
-                            hyperparameter_str,   
-                            "{}.csv"
-                        ).format(postfix),
-                    logit_save_file_name=os.path.join(
-                            pred_result_folder_test,
-                            m["model_name"],
-                            hyperparameter_str,    
-                            "{}_logit.csv"
-                        ).format(postfix)
+                    unknown_thresh=args.unknown,
+                    softmax_save_file_name=os.path.join(pred_folder, f"{postfix}.csv")
                 )
                 del model
                 K.clear_session()
             else:
                 print("\"{}\" doesn't exist".format(model_filepath))
 
-        # Ensemble Models' Predictions on Test Data
-        df_ensemble = ensemble_predictions(
-            result_folder=pred_result_folder_test, 
-            hyperparameter_str=hyperparameter_str, 
-            category_names=category_names, 
-            save_file=False,
-            model_names=transfer_models, 
-            postfixes=[postfix]
-        ).drop(columns=['pred_category'])
+        if (len(transfer_models)>1):
+            # Ensemble Models' Predictions on Test Data
+            df_ensemble = ensemble_predictions(
+                result_folder=pred_result_folder_test, 
+                hyperparameter_str=hyperparameter_str, 
+                category_names=category_names, 
+                save_file=False,
+                model_names=transfer_models, 
+                postfixes=[postfix]
+            ).drop(columns=['pred_category'])
 
-        df_ensemble.to_csv(
-            os.path.join(
-                pred_result_folder_test, 
-                f"Ensemble_{postfix}.csv"
-            ), 
-            index=False
-        )
+            df_ensemble.to_csv(
+                os.path.join(
+                    pred_result_folder_test, 
+                    f"Ensemble_{postfix}.csv"
+                ), 
+                index=False
+            )
 
 
 def train_vanilla(
