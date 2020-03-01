@@ -13,11 +13,10 @@ import pandas as pd
 import PIL
 import sklearn.model_selection
 import tensorflow as tf
-from Augmentor import DataFramePipeline, Pipeline
-from Augmentor.ImageUtilities import AugmentorImage
+from Augmentor import Operations
 from tqdm import tqdm
 
-from data import train_validation_split
+from data import load_isic_training_data, load_isic_training_and_out_dist_data, train_validation_split, get_dataframe_from_img_folder
 
 
 # Mean and STD calculated over the Training Set
@@ -79,63 +78,48 @@ def load_image(filename, target_size=(500,500)):
     return img
 
 
-def scan_dataframe(source_dataframe, image_col, category_col, output_directory):
-    # ensure column is categorical
-    cat_col_series = pd.Categorical(source_dataframe[category_col])
-    abs_output_directory = os.path.abspath(output_directory)
-    class_labels = list(enumerate(cat_col_series.categories))
+def augment(source_dataframe, images_path, operations, n):
+    n = n - source_dataframe.shape[0] 
+    source_dataframe['img'] = source_dataframe.apply(lambda row: load_image(os.path.join(images_path, row.image+'.jpg')), axis=1)
 
-    augmentor_images = []
+    augmentor_df = source_dataframe.sample(n=n, replace=True)
 
-    for image_path, cat_id in zip(source_dataframe[image_col].values, cat_col_series.codes):
-        a = AugmentorImage(image_path=image_path, output_directory=abs_output_directory)
-        a.class_label = str(cat_id)
-        a.class_label_int = cat_id
-        categorical_label = np.zeros(len(class_labels), dtype=np.uint32)
-        categorical_label[cat_id] = 1
-        a.categorical_label = categorical_label
-        a.file_format = os.path.splitext(image_path)[1].split(".")[1]
-        augmentor_images.append(a)
+    with tqdm(total=augmentor_df.shape[0], desc="Executing Pipeline", unit=" Samples") as progress_bar:
+        for _, row in augmentor_df.iterrows():
 
-    return augmentor_images, class_labels
+            augmented_image = row["img"]
+            for operation in operations:
+                r = round(random.uniform(0, 1), 1)
+                if r <= operation.probability:
+                    augmented_image = operation.perform_operation([augmented_image])[0]
+
+            row['img'] = augmented_image
+            row['image'] = f"{row['image']}_{random.randrange(1000)}"
+
+            source_dataframe = source_dataframe.append(row)
+            
+            progress_bar.set_description("Processing %s" % os.path.basename(row["image"]))
+            progress_bar.update(1)
+
+    return source_dataframe
 
 
-class CustomDataFramePipeline(Pipeline):
-    def __init__(self, source_dataframe, image_col, category_col, output_directory="output", save_format="JPEG"):
-        super(CustomDataFramePipeline, self).__init__(source_directory=None,
-                                                output_directory=output_directory,
-                                                save_format=save_format)
-        self._source_dataframe = source_dataframe
-        self._populate(source_dataframe, image_col, category_col, output_directory, save_format)
+def get_augmentation_operations():
+    operations = []
+    # Rotate the image by 90 degrees randomly
+    operations.append(Operations.Rotate(probability=0.5, rotation=-1))
+    # Flip top/bottom
+    operations.append(Operations.Flip(probability=0.5, top_bottom_left_right="TOP_BOTTOM"))
+    # Flip left/right
+    operations.append(Operations.Flip(probability=0.5, top_bottom_left_right="LEFT_RIGHT"))
+    # Shear Image
+    operations.append(Operations.Shear(probability=0.5, max_shear_left=20, max_shear_right=20))
+    # Random change brightness of the image
+    operations.append(Operations.RandomBrightness(probability=0.5, min_factor=0.9,max_factor=1.1))
+    # Random change saturation of the image
+    operations.append(Operations.RandomColor(probability=0.5, min_factor=0.9,max_factor=1.1))
 
-    def _populate(self, source_dataframe, image_col, category_col, output_directory, save_format):
-        self.augmentor_images, self.class_labels = scan_dataframe(source_dataframe, image_col, category_col, output_directory)
-        self._check_images(output_directory)
-
-    def sample(self, images_path, n):
-        n = n - self._source_dataframe.shape[0] 
-        self._source_dataframe['img'] = self._source_dataframe.apply(lambda row: load_image(os.path.join(images_path, row.image+'.jpg')), axis=1)
-
-        augmentor_df = self._source_dataframe.sample(n=n, replace=True)
-
-        with tqdm(total=augmentor_df.shape[0], desc="Executing Pipeline", unit=" Samples") as progress_bar:
-            for index, row in augmentor_df.iterrows():
-
-                augmented_image = row["img"]
-                for operation in self.operations:
-                    r = round(random.uniform(0, 1), 1)
-                    if r <= operation.probability:
-                        augmented_image = operation.perform_operation([augmented_image])[0]
-
-                row['img'] = augmented_image
-                row['image'] = f"{row['image']}_{index}"
-
-                self._source_dataframe = self._source_dataframe.append(row)
-                
-                progress_bar.set_description("Processing %s" % os.path.basename(row["image"]))
-                progress_bar.update(1)
-
-        return self._source_dataframe
+    return operations
 
 
 def sample(df_ground_truth, images_path, count_per_category, img_size=None):
@@ -144,10 +128,8 @@ def sample(df_ground_truth, images_path, count_per_category, img_size=None):
         category_samples = df_ground_truth.loc[df_ground_truth['category'] == i]
         if(count_per_category[i] > category_samples.shape[0]):
             # oversample
-            n_augment = count_per_category[i] - category_samples.shape[0]
             print(f'Augmenting {category_samples.shape[0]} samples from class {i} into approximately {count_per_category[i]} samples...')
-            pipeline = get_augmentation_pipeline(category_samples, "test_smaples")
-            samples = pipeline.sample(images_path, count_per_category[i])
+            samples = augment(category_samples, images_path, get_augmentation_operations(), count_per_category[i])
         else:
             # undersample
             print(f'Undersampling {category_samples.shape[0]} samples from class {i} into approximately {count_per_category[i]} samples...')
@@ -161,67 +143,79 @@ def sample(df_ground_truth, images_path, count_per_category, img_size=None):
     return result.sample(frac=1).reset_index(drop=True) 
 
 
-def get_augmentation_pipeline(df, output):
-    p_train = CustomDataFramePipeline(
-        df, 
-        "path",
-        "category",
-        output_directory=output
-    )
+def process(
+    images_path, 
+    descriptions_filename, 
+    target_img_size, 
+    training_samples, 
+    class_balance,
+    unknown_images_path=None,
+    unknown_train=False
+):
 
-    # Rotate the image by either 90, 180, or 270 degrees randomly
-    p_train.rotate_random_90(probability=0.5)
-    # Flip the image along its vertical axis
-    p_train.flip_top_bottom(probability=0.5)
-    # Flip the image along its horizontal axis
-    p_train.flip_left_right(probability=0.5)
-    # Shear image
-    p_train.shear(probability=0.5, max_shear_left=20, max_shear_right=20)
-    # Random change brightness of the image
-    p_train.random_brightness(probability=0.5, min_factor=0.9, max_factor=1.1)
-    # Random change saturation of the image
-    p_train.random_color(probability=0.5, min_factor=0.9, max_factor=1.1)
+    if unknown_images_path and unknown_train is True:
+        df_ground_truth, category_names = load_isic_training_and_out_dist_data(images_path, descriptions_filename, unknown_images_path)
+    else:
+        df_ground_truth, category_names, unknown_category = load_isic_training_data(images_path, descriptions_filename)
 
-    return p_train
+    df_train, df_test = train_validation_split(df_ground_truth)
 
-def process(images_path, descriptions_filename, target_img_size, target_m, class_balance):
+    if unknown_images_path and unknown_train is not True:
+        df_out_dist = get_dataframe_from_img_folder(unknown_images_path, has_path_col=True)
+        for name in category_names:
+            df_out_dist[name] = 0.0
+        df_out_dist[unknown_category] = 1.0
+        df_out_dist["category"] = 8
+        # Change the order of columns
+        df_out_dist = df_out_dist[df_train.columns.values]
+        df_test = df_test.append(df_out_dist)
 
-    # Ground truth
-    df_ground_truth, known_category_names, _ = load_isic_training_data(images_path, descriptions_filename)    
-    count_per_category = Counter(df_ground_truth['category'])
+
+    # Process train set + oversample/undersample class samples
+    count_per_category = Counter(df_train['category'])
     total_sample_count = sum(count_per_category.values())
 
-    if (target_m == None or target_m == total_sample_count):
-        result = df_ground_truth.sample(frac=1).reset_index(drop=True)
+    if (training_samples == None or training_samples == total_sample_count):
+        result = df_train.sample(frac=1).reset_index(drop=True)
         result['img'] = result.apply(lambda row: load_image(os.path.join(images_path, row.image+'.jpg')), axis=1)
     else:
         samples_per_category = []
 
         if class_balance:
-            samples_per_category = [floor(target_m/len(count_per_category)) for i in count_per_category]
+            samples_per_category = [floor(training_samples/len(count_per_category)) for i in count_per_category]
         else:
             for i, _ in count_per_category.most_common():
                 count_ratio = float(count_per_category[i])/total_sample_count
-                samples_per_category.insert(i, floor(count_ratio*target_m))
-        
-        print(f'Turning {total_sample_count} samples into approximately {target_m} samples...')
+                samples_per_category.insert(i, floor(count_ratio*training_samples))
+         
+        print(f'Turning {total_sample_count} samples into approximately {training_samples} samples...')
         result = sample(
-            df_ground_truth,
+            df_train,
             images_path, 
             samples_per_category,
             img_size = target_img_size
         )
 
-    return result
+    # Process test set
+    df_test = df_test.sample(frac=1).reset_index(drop=True)
+    df_test['img'] = df_test.apply(lambda row: load_image(row.path), axis=1)
 
+    # Removing unnecessary path column
+    del result['path']
+    del df_test['path']
 
-def load(preprocessed_dataset_filename):
-    dataset = np.load(preprocessed_dataset_filename)
-    return dataset['x'], dataset['y']
+    return result, df_test
 
 
 def save(df, images_path, descriptions_path):
-    for index, row in df.iterrows():
+    if os.path.exists(images_path):
+        shutil.rmtree(images_path)
+
+    os.makedirs(images_path)
+    if os.path.exists(descriptions_path):
+        os.remove(descriptions_path)
+
+    for _, row in df.iterrows():
         row["img"].save(os.path.join(images_path, f'{row["image"]}.jpg'))
     
     del df['img']
@@ -234,34 +228,31 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--images', default="./isic2019/ISIC_2019_Training_Input")
     parser.add_argument('--unknown-images', default=None)
+    parser.add_argument('--unknown-train', dest='unknown_train', action='store_true', default=False)
     parser.add_argument('--descriptions', default="./isic2019/ISIC_2019_Training_GroundTruth_Original.csv")
     parser.add_argument('--target-size', type=int, default=224)
-    parser.add_argument('--target-samples', type=int, default=None)
+    parser.add_argument('--training-samples', type=int, default=None)
     parser.add_argument('--class-balance', dest='classbalance', action='store_true', default=False)
     parser.add_argument('--output', default="./isic2019/sampled", required=True)
     args = parser.parse_args()
 
-    train_output_path = os.path.join(args.output, 'ISIC_2019_Training_Input') 
-    test_output_path = os.path.join(args.output, 'ISIC_2019_Test_Input')
-    unknown_output_path = os.path.join(args.output, 'Unknown')
-
-    if not os.path.exists(train_output_path):
-        os.makedirs(train_output_path)
-    if not os.path.exists(test_output_path):
-        os.makedirs(test_output_path)
-    if not os.path.exists(unknown_output_path):
-        os.makedirs(unknown_output_path)
-
-    resultDf = process(
+    df_train, df_test = process(
         args.images, 
         args.descriptions, 
         (args.target_size, args.target_size), 
-        args.target_samples, 
-        args.classbalance
+        args.training_samples, 
+        args.classbalance,
+        unknown_images_path=args.unknown_images,
+        unknown_train=args.unknown_train
     )
-    del resultDf['path']
     
-    df_train, df_test = train_validation_split(resultDf)
-
-    save(df_train, train_output_path, os.path.join(args.output, 'ISIC_2019_Training_GroundTruth.csv'))
-    save(df_test, test_output_path, os.path.join(args.output, 'ISIC_2019_Test_GroundTruth.csv'))
+    save(
+        df_train, 
+        os.path.join(args.output, 'ISIC_2019_Training_Input'), 
+        os.path.join(args.output, 'ISIC_2019_Training_GroundTruth.csv')
+    )
+    save(
+        df_test, 
+        os.path.join(args.output, 'ISIC_2019_Test_Input'), 
+        os.path.join(args.output, 'ISIC_2019_Test_GroundTruth.csv')
+    )

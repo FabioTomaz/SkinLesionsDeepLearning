@@ -3,6 +3,9 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0,parentdir) 
 from utils import get_hyperparameters_from_str 
+from data.data import load_isic_training_data
+from collections import Counter
+
 
 def get_models_info(history_folder, model_name):
     d=os.path.join("..", history_folder, model_name)
@@ -21,3 +24,20 @@ def get_models_info(history_folder, model_name):
             models_info.append(model_info)
     
     return models_info
+
+def count_per_category(data_folder, test=False):
+    image_folder = os.path.join(data_folder, 'ISIC_2019_Test_Input' if test else 'ISIC_2019_Training_Input')
+    ground_truth_file = os.path.join(data_folder, 'ISIC_2019_Test_GroundTruth.csv' if test else 'ISIC_2019_Training_GroundTruth.csv')
+
+    df_test_ground_truth, known_category_names, unknown_category_name = load_isic_training_data(
+        image_folder, 
+        ground_truth_file,
+        test=True
+    )
+
+    all_category_names = known_category_names + [unknown_category_name]
+    count_per_category = Counter(df_test_ground_truth['category'])
+
+    print(all_category_names)
+    print(count_per_category)
+    return all_category_names, count_per_category
