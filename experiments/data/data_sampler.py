@@ -41,7 +41,7 @@ def standardize(
     return x
 
 
-def load_image(filename, target_size=(500,500)):
+def load_image(filename, target_size=(224,224)):
     assert target_size[0] == target_size[1]
 
     def _crop(img):
@@ -72,8 +72,8 @@ def load_image(filename, target_size=(500,500)):
         return new_img
 
     img = PIL.Image.open(filename).convert('RGB')
-    #img = _crop(img)
-    #img = _resize(img, target_size)
+    img = _crop(img)
+    img = _resize(img, target_size)
     #img = _correct(img)
     return img
 
@@ -113,7 +113,7 @@ def get_augmentation_operations():
     # Flip left/right
     operations.append(Operations.Flip(probability=0.5, top_bottom_left_right="LEFT_RIGHT"))
     # Shear Image
-    operations.append(Operations.Shear(probability=0.5, max_shear_left=20, max_shear_right=20))
+    operations.append(Operations.Shear(probability=0.6, max_shear_left=20, max_shear_right=20))
     # Random change brightness of the image
     operations.append(Operations.RandomBrightness(probability=0.5, min_factor=0.9,max_factor=1.1))
     # Random change saturation of the image
@@ -179,14 +179,14 @@ def process(
         result = df_train.sample(frac=1).reset_index(drop=True)
         result['img'] = result.apply(lambda row: load_image(os.path.join(images_path, row.image+'.jpg')), axis=1)
     else:
-        samples_per_category = []
+        samples_per_category = [None] * len(count_per_category)
 
         if class_balance:
             samples_per_category = [floor(training_samples/len(count_per_category)) for i in count_per_category]
         else:
             for i, _ in count_per_category.most_common():
                 count_ratio = float(count_per_category[i])/total_sample_count
-                samples_per_category.insert(i, floor(count_ratio*training_samples))
+                samples_per_category[i] = floor(count_ratio*training_samples)
          
         print(f'Turning {total_sample_count} samples into approximately {training_samples} samples...')
         result = sample(
@@ -223,6 +223,13 @@ def save(df, images_path, descriptions_path):
 
     df.to_csv(descriptions_path, index=False)
 
+def save_no_unknown(df_test, no_unknown_descriptions_file):
+    df_test_no_unknown = df_test.copy()
+    del df_test_no_unknown['img']
+    df_test_no_unknown = df_test_no_unknown[df_test_no_unknown.category != 8]
+    del df_test_no_unknown['category']
+    df_test_no_unknown.to_csv(no_unknown_descriptions_file, index=False)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -251,8 +258,15 @@ if __name__ == '__main__':
         os.path.join(args.output, 'ISIC_2019_Training_Input'), 
         os.path.join(args.output, 'ISIC_2019_Training_GroundTruth.csv')
     )
+
+    save_no_unknown(
+        df_test, 
+        os.path.join(args.output, 'ISIC_2019_Test_GroundTruth.csv')
+    )
+
     save(
         df_test, 
         os.path.join(args.output, 'ISIC_2019_Test_Input'), 
-        os.path.join(args.output, 'ISIC_2019_Test_GroundTruth.csv')
+        os.path.join(args.output, 'ISIC_2019_Test_GroundTruth_Unknown.csv')
     )
+    

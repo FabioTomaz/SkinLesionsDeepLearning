@@ -14,6 +14,9 @@ from base_model_param import get_transfer_model_param_map
 from lesion_classifier import LesionClassifier
 from utils import ensemble_predictions, formated_hyperparameter_str
 
+# Use it to choose which GPU to train on
+# os.environ["CUDA_VISIBLE_DEVICES"]="1"
+
 def main():
     parser = argparse.ArgumentParser(description='ISIC-2019 Skin Lesion Classifiers')
     parser.add_argument('data', metavar='DIR', help='path to data folder')
