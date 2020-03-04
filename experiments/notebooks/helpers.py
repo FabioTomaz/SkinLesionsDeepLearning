@@ -12,7 +12,7 @@ def get_models_info(history_folder, model_name):
     hyperparameter_combinations = [o for o in os.listdir(d) if os.path.isdir(os.path.join(d,o))]
     models_info = []
 
-    for i, combination in enumerate(hyperparameter_combinations): 
+    for _, combination in enumerate(hyperparameter_combinations): 
         hyperparameters = get_hyperparameters_from_str(combination)
         file_path = os.path.join("..", history_folder, model_name, combination, "training.csv")
         if(len(hyperparameters)>1 and os.path.exists(file_path)):
@@ -25,7 +25,8 @@ def get_models_info(history_folder, model_name):
     
     return models_info
 
-def count_per_category(data_folder, test=False):
+
+def get_count_per_category(data_folder, test=False):
     image_folder = os.path.join(data_folder, 'ISIC_2019_Test_Input' if test else 'ISIC_2019_Training_Input')
     ground_truth_file = os.path.join(data_folder, 'ISIC_2019_Test_GroundTruth.csv' if test else 'ISIC_2019_Training_GroundTruth.csv')
 

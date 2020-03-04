@@ -52,7 +52,7 @@ def main():
     parser.add_argument('--training', dest='training', action='store_true', help='Train models')
     parser.add_argument('--predval', dest='predval', action='store_true', help='Predict validation set')
     parser.add_argument('--predtest', dest='predtest', action='store_true', help='Predict the test data.')
-    parser.add_argument('--unknown', type=int, help='Threshold to predict unknown class with.', default=None)
+    parser.add_argument('--unknown', type=float, help='Threshold to predict unknown class with.', default=None)
     parser.add_argument(
         '--predvalresultfolder', 
         help='Name of the prediction result folder for validation set (default: %(default)s)', 
@@ -93,7 +93,7 @@ def main():
     df_ground_truth, known_category_names, unknown_category_name = load_isic_training_data(training_image_folder, ground_truth_file)
     category_names = known_category_names
     df_train, df_val = train_validation_split(df_ground_truth)
-    class_weight_dict, _ = compute_class_weight_dict(df_train)
+    class_weight_dict, class_weights = compute_class_weight_dict(df_train)
     category_num = len(category_names)
 
     # Models used for predictition
@@ -156,8 +156,10 @@ def main():
             lmbda,
             dropout,
             batch_size,
-            len(df_val['path'].tolist()) + len(df_train['path'].tolist())
+            len(df_val['path'].tolist()) + len(df_train['path'].tolist()),
+            len(set(class_weights)) <= 1
         )
+
         postfixes = ['best_balanced_acc', 'best_loss', 'latest']
         for postfix in postfixes:
             for m in models_to_predict:
@@ -175,7 +177,7 @@ def main():
                         pred_result_folder_val, 
                         m["model_name"],
                         hyperparameter_str,
-                        f"unknown_{args.unknown}" if args.unknown else "no_unknown",
+                        f"unknown_{args.unknown}" if args.unknown is not None else "no_unknown",
                     )
                     
                     if not os.path.exists(pred_folder):
@@ -184,7 +186,7 @@ def main():
                     LesionClassifier.predict_dataframe(
                         model=model, 
                         df=df_val,
-                        category_names=category_names if args.unknown else category_names+unknown_category_name,
+                        category_names=category_names if args.unknown is None else category_names+[unknown_category_name],
                         augmentation_pipeline=LesionClassifier.create_aug_pipeline_val(m['input_size']),
                         preprocessing_function=m['preprocessing_function'],
                         batch_size=batch_size,
@@ -210,7 +212,8 @@ def main():
             lmbda,
             dropout,
             batch_size,
-            len(df_val['path'].tolist()) + len(df_train['path'].tolist())
+            len(df_val['path'].tolist()) + len(df_train['path'].tolist()),
+            len(set(class_weights)) <= 1,
         )
         postfix = 'best_balanced_acc'
         for m in models_to_predict:
@@ -227,7 +230,7 @@ def main():
                     pred_result_folder_test, 
                     m["model_name"],
                     hyperparameter_str,
-                    f"unknown_{args.unknown}" if args.unknown else "no_unknown",
+                    f"unknown_{args.unknown}" if args.unknown is not None else "no_unknown",
                 )
                 
                 if not os.path.exists(pred_folder):
@@ -240,7 +243,7 @@ def main():
                 LesionClassifier.predict_dataframe(
                     model=model, 
                     df=df_test,
-                    category_names=category_names if args.unknown else category_names+unknown_category_name,
+                    category_names=category_names if args.unknown is None else category_names+[unknown_category_name],
                     augmentation_pipeline=LesionClassifier.create_aug_pipeline_val(m['input_size']),
                     preprocessing_function=m['preprocessing_function'],
                     batch_size=batch_size,

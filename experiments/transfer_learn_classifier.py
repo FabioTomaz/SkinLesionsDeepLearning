@@ -120,7 +120,8 @@ class TransferLearnClassifier(LesionClassifier):
             self.l2,
             self.dropout,
             self.batch_size,
-            len(self.image_paths_train) + len(self.image_paths_val)
+            len(self.image_paths_train) + len(self.image_paths_val),
+            len(set(self.class_weight)) <= 1,
         )
 
         # Checkpoint Callbacks

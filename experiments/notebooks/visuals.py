@@ -320,3 +320,12 @@ def plot_prob_bars(img_title, img_path, labels, probs, topk=5, title=None, figsi
     ax2.invert_yaxis()
     fig.tight_layout(rect=[0, 0.02, 1, 0.96])
     return fig
+
+def plot_class_dist(category_names, count_per_category):
+    # Create a bar chart
+    fig, ax = plt.subplots(figsize=(8, 5))
+    fig.patch.set_facecolor('white')
+    ax.set(xlabel='Category', ylabel='Number of Images')
+    rects = plt.bar(category_names, [count_per_category[i] for i in range(len(category_names))])
+    autolabel(ax, rects)
+    return fig 

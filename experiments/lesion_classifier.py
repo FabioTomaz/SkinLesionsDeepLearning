@@ -134,7 +134,6 @@ class LesionClassifier():
         batch_size=32, 
         workers=1, 
         softmax_save_file_name=None, 
-        logit_save_file_name=None,
         unknown_thresh=None
     ):
         generator = ImageIterator(
@@ -162,15 +161,6 @@ class LesionClassifier():
         # explicitly convert softmax values to floating point because 0 and 1 are invalid, but 0.0 and 1.0 are valid
         softmax_probs = softmax(logits).astype(float) 
 
-        # logits
-        df_logit = pd.DataFrame(logits, columns=category_names)
-        if y_col in df.columns:
-            df_logit[y_col] = df[y_col].to_numpy()
-        df_logit['pred_'+y_col] = np.argmax(logits, axis=1)
-        df_logit.insert(0, id_col, df[id_col].to_numpy())
-        if logit_save_file_name is not None:
-            df_logit.to_csv(path_or_buf=logit_save_file_name, index=False)
-
         # Apply softmax threshold to determine unknown class
         if unknown_thresh:
             unknown_softmax_values = np.zeros((len(softmax_probs),1))
@@ -191,7 +181,7 @@ class LesionClassifier():
         if softmax_save_file_name is not None:
             df_softmax.to_csv(path_or_buf=softmax_save_file_name, index=False)
 
-        return df_softmax, df_logit
+        return df_softmax
 
     def _create_image_generator(self):
         ### Training Image Generator

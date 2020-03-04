@@ -245,13 +245,15 @@ def formated_hyperparameter_str(
     lmda,
     dropout,
     batch_size,
-    samples
+    samples,
+    balanced
 ):
     felr_str = format(felr, 'f')
     ftlr_str = format(ftlr, 'f')
     dropout_str = "None" if dropout == None else format(dropout, 'f')
     l2_str = "None" if lmda == None else format(lmda, 'f')
-    return f'samples_{samples}-feepochs_{feepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}'
+    balanced_int = 1 if balanced is True else 0
+    return f'balanced_{balanced_int}-samples_{samples}-feepochs_{feepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}'
 
 def get_hyperparameters_from_str(hyperparameter_str):
     hyperparameter_combination = hyperparameter_str.split("-")
