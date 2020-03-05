@@ -39,4 +39,4 @@ def get_count_per_category(data_folder, test=False):
     all_category_names = known_category_names + [unknown_category_name]
     count_per_category = Counter(df_test_ground_truth['category'])
 
-    return all_category_names, count_per_category
+    return all_category_names, count_per_category, df_test_ground_truth

@@ -187,8 +187,9 @@ def process(
             for i, _ in count_per_category.most_common():
                 count_ratio = float(count_per_category[i])/total_sample_count
                 samples_per_category[i] = floor(count_ratio*training_samples)
-         
-        print(f'Turning {total_sample_count} samples into approximately {training_samples} samples...')
+            # Adjust to fill remainder samples due to flooring calculations
+            samples_per_category[-1] = samples_per_category[-1] + (training_samples - sum(samples_per_category)) 
+        print(f'Turning {total_sample_count} samples into {training_samples} samples...')
         result = sample(
             df_train,
             images_path, 
