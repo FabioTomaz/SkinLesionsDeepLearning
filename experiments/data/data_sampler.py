@@ -130,16 +130,20 @@ def sample(df_ground_truth, images_path, count_per_category, img_size=None):
             # oversample
             print(f'Augmenting {category_samples.shape[0]} samples from class {i} into approximately {count_per_category[i]} samples...')
             samples = augment(category_samples, images_path, get_augmentation_operations(), count_per_category[i])
-        else:
-            # undersample
+        elif(count_per_category[i] < category_samples.shape[0]):
+            # keep undersample 
             print(f'Undersampling {category_samples.shape[0]} samples from class {i} into approximately {count_per_category[i]} samples...')
             samples = category_samples.sample(n=count_per_category[i])
-            samples['img'] = samples.apply(
-                lambda row: load_image(os.path.join(images_path, row.image+'.jpg')), 
-                axis=1
-            )
+            samples['img'] = samples.apply(lambda row: load_image(os.path.join(images_path, row.image+'.jpg')), axis=1)
+        else:
+            # Keep original samples
+            print(f'Keeping original {category_samples.shape[0]} samples from class {i} ...')
+            samples = category_samples.copy()
+            samples['img'] = category_samples.apply(lambda row: load_image(os.path.join(images_path, row.image+'.jpg')), axis=1)
+        
         result = result.append(samples) 
 
+    # Shuffle rows and return result
     return result.sample(frac=1).reset_index(drop=True) 
 
 
@@ -175,27 +179,31 @@ def process(
     count_per_category = Counter(df_train['category'])
     total_sample_count = sum(count_per_category.values())
 
-    if (training_samples == None or training_samples == total_sample_count):
-        result = df_train.sample(frac=1).reset_index(drop=True)
-        result['img'] = result.apply(lambda row: load_image(os.path.join(images_path, row.image+'.jpg')), axis=1)
+    # Calculate number of samples per class
+    samples_per_category = [None] * len(count_per_category)
+    if class_balance:
+        samples_per_category = [floor(training_samples/len(count_per_category)) for i in count_per_category]
     else:
-        samples_per_category = [None] * len(count_per_category)
-
-        if class_balance:
-            samples_per_category = [floor(training_samples/len(count_per_category)) for i in count_per_category]
-        else:
-            for i, _ in count_per_category.most_common():
+        for i, _ in count_per_category.most_common():
+            if (training_samples is None):
+                # Keep original
+                samples_per_category[i] = count_per_category[i]
+            else:
+                # Oversample/undersample
                 count_ratio = float(count_per_category[i])/total_sample_count
                 samples_per_category[i] = floor(count_ratio*training_samples)
+        
+        if (training_samples is not None):
             # Adjust to fill remainder samples due to flooring calculations
             samples_per_category[-1] = samples_per_category[-1] + (training_samples - sum(samples_per_category)) 
-        print(f'Turning {total_sample_count} samples into {training_samples} samples...')
-        result = sample(
-            df_train,
-            images_path, 
-            samples_per_category,
-            img_size = target_img_size
-        )
+    
+    print(f'Turning {total_sample_count} samples into {sum(samples_per_category)} samples...')
+    result = sample(
+        df_train,
+        images_path, 
+        samples_per_category,
+        img_size = target_img_size
+    )
 
     # Process test set
     df_test = df_test.sample(frac=1).reset_index(drop=True)
@@ -244,6 +252,9 @@ if __name__ == '__main__':
     parser.add_argument('--output', default="./isic2019/sampled", required=True)
     args = parser.parse_args()
 
+    if(args.classbalance and not args.training_samples):
+        raise ValueError("Must indicate --training-samples when using --class-balance") 
+
     df_train, df_test = process(
         args.images, 
         args.descriptions, 
@@ -260,6 +271,7 @@ if __name__ == '__main__':
         os.path.join(args.output, 'ISIC_2019_Training_GroundTruth.csv')
     )
 
+    # Save test ground truth file without unknown samples
     save_no_unknown(
         df_test, 
         os.path.join(args.output, 'ISIC_2019_Test_GroundTruth.csv')
