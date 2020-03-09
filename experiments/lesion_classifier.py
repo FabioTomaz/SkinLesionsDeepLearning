@@ -133,9 +133,11 @@ class LesionClassifier():
         preprocessing_function=None,
         batch_size=32, 
         workers=1, 
-        softmax_save_file_name=None, 
-        unknown_thresh=None
+        unknown_category=None,
+        unknown_thresholds=[]
     ):
+        unknown_thresholds = [1.0] + unknown_thresholds
+        
         generator = ImageIterator(
             image_paths=df[x_col].tolist(),
             labels=None,
@@ -158,30 +160,38 @@ class LesionClassifier():
             workers=workers
         )
 
-        # explicitly convert softmax values to floating point because 0 and 1 are invalid, but 0.0 and 1.0 are valid
-        softmax_probs = softmax(logits).astype(float) 
+        df_softmax_dict = {}
 
-        # Apply softmax threshold to determine unknown class
-        if unknown_thresh:
-            unknown_softmax_values = np.zeros((len(softmax_probs),1))
-            for i in range(len(softmax_probs)):
-                if max(softmax_probs[i]) < unknown_thresh:
-                    for j in range(len(softmax_probs[i])):
-                        softmax_probs[i][j] = 0.0
-                    unknown_softmax_values[i] =  1.0
-            softmax_probs = np.append(softmax_probs, unknown_softmax_values, axis=1)
-
-        # softmax probabilities
-        df_softmax = pd.DataFrame(softmax_probs, columns=category_names)
-        if y_col in df.columns:
-            df_softmax[y_col] = df[y_col].to_numpy()
+        # convert softmax values to floating point to become valid
+        original_softmax_probs = softmax(logits).astype(float) 
         
-        df_softmax['pred_'+y_col] = np.argmax(softmax_probs, axis=1)
-        df_softmax.insert(0, id_col, df[id_col].to_numpy())
-        if softmax_save_file_name is not None:
-            df_softmax.to_csv(path_or_buf=softmax_save_file_name, index=False)
+        # Apply softmax threshold to determine unknown class
+        for unknown_thresh in unknown_thresholds:
+            softmax_probs = original_softmax_probs.copy()
 
-        return df_softmax
+            if unknown_thresh != 1.0:
+                unknown_softmax_values = np.zeros((len(softmax_probs),1))
+                for i in range(len(softmax_probs)):
+                    if max(softmax_probs[i]) < unknown_thresh:
+                        for j in range(len(softmax_probs[i])):
+                            softmax_probs[i][j] = 0.0
+                        unknown_softmax_values[i] =  1.0
+                softmax_probs = np.append(softmax_probs, unknown_softmax_values, axis=1)
+
+            # softmax probabilities
+            df_softmax = pd.DataFrame(
+                softmax_probs, 
+                columns=category_names + [unknown_category] if unknown_thresh != 1.0 else category_names
+            )
+            if y_col in df.columns:
+                df_softmax[y_col] = df[y_col].to_numpy()
+            
+            df_softmax['pred_'+y_col] = np.argmax(softmax_probs, axis=1)
+            df_softmax.insert(0, id_col, df[id_col].to_numpy())
+
+            df_softmax_dict[unknown_thresh] = df_softmax
+
+        return df_softmax_dict
 
     def _create_image_generator(self):
         ### Training Image Generator

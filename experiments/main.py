@@ -15,11 +15,12 @@ from lesion_classifier import LesionClassifier
 from utils import ensemble_predictions, formated_hyperparameter_str
 
 # Use it to choose which GPU to train on
-# os.environ["CUDA_VISIBLE_DEVICES"]="1"
+# os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 def main():
-    parser = argparse.ArgumentParser(description='ISIC-2019 Skin Lesion Classifiers')
+    parser = argparse.ArgumentParser(description='ISIC-2019 Skin Lesion Classifier')
     parser.add_argument('data', metavar='DIR', help='path to data folder')
+    parser.add_argument('--testfolder', metavar='DIR', help='path to test folder', default=None)
     parser.add_argument('--batchsize', type=int, help='Batch size (default: %(default)s)', default=32)
     parser.add_argument('--felr', type=float, help='Feature extractor learning rate (default: %(default)s)', default=1e-3)
     parser.add_argument('--ftlr', type=float, help='Fine tuning learning rate (default: %(default)s)', default=1e-5)
@@ -55,7 +56,7 @@ def main():
     parser.add_argument('--training', dest='training', action='store_true', help='Train models')
     parser.add_argument('--predval', dest='predval', action='store_true', help='Predict validation set')
     parser.add_argument('--predtest', dest='predtest', action='store_true', help='Predict the test data.')
-    parser.add_argument('--unknown', type=float, help='Threshold to predict unknown class with.', default=None)
+    parser.add_argument('--unknown', nargs="*", type=float, default=[0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5], help='Threshold to predict unknown class with.')
     parser.add_argument(
         '--predvalresultfolder', 
         help='Name of the prediction result folder for validation set (default: %(default)s)', 
@@ -68,7 +69,6 @@ def main():
     )
     parser.add_argument('--modelfolder', help='Name of the model folder (default: %(default)s)', default='models')
     args = parser.parse_args()
-    print(args)
 
     # Write command to a file
     with open('Cmd_History.txt', 'a') as f:
@@ -89,7 +89,7 @@ def main():
 
     # ISIC data
     training_image_folder = os.path.join(data_folder, 'ISIC_2019_Training_Input')
-    test_image_folder = os.path.join(data_folder, 'ISIC_2019_Test_Input')
+    test_image_folder = args.testfolder if args.testfolder is not None else os.path.join(data_folder, 'ISIC_2019_Test_Input')
 
     # Ground truth
     ground_truth_file = os.path.join(data_folder, 'ISIC_2019_Training_GroundTruth.csv')
@@ -175,28 +175,32 @@ def main():
                 if os.path.exists(model_filepath):
                     print("===== Predict validation set using \"{}_{}\" model =====".format(m['model_name'], postfix))
                     model = load_model(filepath=model_filepath, custom_objects={'balanced_accuracy': balanced_accuracy(category_num)})
-                    
-                    pred_folder = os.path.join(
-                        pred_result_folder_val, 
-                        m["model_name"],
-                        hyperparameter_str,
-                        f"unknown_{args.unknown}" if args.unknown is not None else "no_unknown",
-                    )
-                    
-                    if not os.path.exists(pred_folder):
-                        os.makedirs(pred_folder)
 
-                    LesionClassifier.predict_dataframe(
+                    df_softmax_dict = LesionClassifier.predict_dataframe(
                         model=model, 
                         df=df_val,
-                        category_names=category_names if args.unknown is None else category_names+[unknown_category_name],
+                        category_names=category_names,
+                        unknown_category=unknown_category_name if args.unknown else None,
                         augmentation_pipeline=LesionClassifier.create_aug_pipeline_val(m['input_size']),
                         preprocessing_function=m['preprocessing_function'],
                         batch_size=batch_size,
                         workers=workers,
-                        unknown_thresh=args.unknown,
-                        softmax_save_file_name=os.path.join(pred_folder, f"{postfix}.csv")
+                        unknown_thresholds=args.unknown
                     )
+
+                    # Save results (multiple thresholds and no threhold)
+                    for unknown_thresh, df_softmax in df_softmax_dict.items():
+                        pred_folder = os.path.join(
+                            pred_result_folder_test, 
+                            m["model_name"],
+                            hyperparameter_str,
+                            f"unknown_{unknown_thresh}" if unknown_thresh != 1.0 else "no_unknown",
+                        )
+                        if not os.path.exists(pred_folder):
+                            os.makedirs(pred_folder)
+
+                    df_softmax.to_csv(path_or_buf=os.path.join(pred_folder, f"{postfix}.csv"), index=False)
+
                     del model
                     K.clear_session()
                 else:
@@ -229,31 +233,36 @@ def main():
             if os.path.exists(model_filepath):
                 print("===== Predict test data using \"{}_{}\" model =====".format(m['model_name'], postfix))
                 
-                pred_folder = os.path.join(
-                    pred_result_folder_test, 
-                    m["model_name"],
-                    hyperparameter_str,
-                    f"unknown_{args.unknown}" if args.unknown is not None else "no_unknown",
-                )
-                
-                if not os.path.exists(pred_folder):
-                    os.makedirs(pred_folder)
-                
                 model = load_model(
                     filepath=model_filepath, 
                     custom_objects={'balanced_accuracy': balanced_accuracy(category_num)}
                 )
-                LesionClassifier.predict_dataframe(
+
+                df_softmax_dict = LesionClassifier.predict_dataframe(
                     model=model, 
                     df=df_test,
-                    category_names=category_names if args.unknown is None else category_names+[unknown_category_name],
+                    category_names=category_names,
+                    unknown_category=unknown_category_name if args.unknown else None,
                     augmentation_pipeline=LesionClassifier.create_aug_pipeline_val(m['input_size']),
                     preprocessing_function=m['preprocessing_function'],
                     batch_size=batch_size,
                     workers=workers,
-                    unknown_thresh=args.unknown,
-                    softmax_save_file_name=os.path.join(pred_folder, f"{postfix}.csv")
+                    unknown_thresholds=args.unknown
                 )
+                    
+                # Save results (multiple thresholds and no threhold)
+                for unknown_thresh, df_softmax in df_softmax_dict.items():
+                    pred_folder = os.path.join(
+                        pred_result_folder_test, 
+                        m["model_name"],
+                        hyperparameter_str,
+                        f"unknown_{unknown_thresh}" if unknown_thresh != 1.0 else "no_unknown",
+                    )
+                    if not os.path.exists(pred_folder):
+                        os.makedirs(pred_folder)
+
+                    df_softmax.to_csv(path_or_buf=os.path.join(pred_folder, f"{postfix}.csv"), index=False)
+
                 del model
                 K.clear_session()
             else:
