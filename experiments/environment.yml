@@ -1,0 +1,20 @@
+name: experiments
+channels:
+  - conda-forge
+dependencies:
+  - python=3.6
+  - tensorflow-gpu=2.0.0
+  - matplotlib=3.0.2
+  - numpy
+  - scikit-learn
+  - requests=2.21.0
+  - Pillow=5.4.1
+  - tqdm=4.29.1
+  - packaging=20.1
+  - pandas
+  - opencv
+  - jupyter
+  - pip
+  - pip:
+    - augmentor==0.2.8
+    - efficientnet==1.0.0
