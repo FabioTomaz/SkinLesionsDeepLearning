@@ -46,8 +46,6 @@ def main():
                             "EfficientNetB2",
                             "EfficientNetB3",
                             "EfficientNetB4",
-                            "EfficientNetB5", 
-                            "EfficientNetB6",
                             "ResNet50",
                             "ResNet101",
                             "ResNet152",
@@ -144,13 +142,6 @@ def main():
     # Predict validation set
     if args.predval:
         os.makedirs(pred_result_folder_val, exist_ok=True)
-        # Save Ground Truth of validation set
-        val_ground_truth_file_path = os.path.join(pred_result_folder_val, 'Validation_Set_GroundTruth.csv')
-        df_val.drop(columns=['path', 'category']).to_csv(
-            path_or_buf=val_ground_truth_file_path, 
-            index=False
-        )
-        print("Save \"{}\"".format(val_ground_truth_file_path))
 
         hyperparameter_str = formated_hyperparameter_str(
             fe_epochs,
@@ -191,15 +182,19 @@ def main():
                     # Save results (multiple thresholds and no threhold)
                     for unknown_thresh, df_softmax in df_softmax_dict.items():
                         pred_folder = os.path.join(
-                            pred_result_folder_test, 
+                            pred_result_folder_val, 
                             m["model_name"],
                             hyperparameter_str,
                             f"unknown_{unknown_thresh}" if unknown_thresh != 1.0 else "no_unknown",
                         )
+
                         if not os.path.exists(pred_folder):
                             os.makedirs(pred_folder)
 
-                    df_softmax.to_csv(path_or_buf=os.path.join(pred_folder, f"{postfix}.csv"), index=False)
+                        df_softmax.to_csv(path_or_buf=os.path.join(pred_folder, f"{postfix}.csv"), index=False)
+                        df_softmax_no_pred_col = df_softmax.copy()
+                        del df_softmax_no_pred_col['pred_category']
+                        df_softmax_no_pred_col.to_csv(path_or_buf=os.path.join(pred_folder, f"{postfix}_no_pred_category.csv"), index=False)
 
                     del model
                     K.clear_session()
@@ -262,6 +257,9 @@ def main():
                         os.makedirs(pred_folder)
 
                     df_softmax.to_csv(path_or_buf=os.path.join(pred_folder, f"{postfix}.csv"), index=False)
+                    df_softmax_no_pred_col = df_softmax.copy()
+                    del df_softmax_no_pred_col['pred_category']
+                    df_softmax_no_pred_col.to_csv(path_or_buf=os.path.join(pred_folder, f"{postfix}_no_pred_category.csv"), index=False)
 
                 del model
                 K.clear_session()

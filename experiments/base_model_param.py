@@ -1,10 +1,7 @@
 from typing import NamedTuple
 from types import FunctionType
 # from keras.applications.densenet import preprocess_input as preprocess_input_densenet
-# from keras_applications.resnext import preprocess_input as preprocess_input_resnext
-from tensorflow.keras.applications.xception import preprocess_input as preprocess_input_xception
-from tensorflow.keras.applications.nasnet import preprocess_input as preprocess_input_nasnet
-from tensorflow.keras.applications.inception_resnet_v2 import preprocess_input as preprocess_input_inception_resnet_v2
+
 from utils import preprocess_input as preprocess_input_trainset, preprocess_input_2 as preprocess_input_trainset_2
 
 BaseModelParam = NamedTuple('BaseModelParam', [
@@ -29,18 +26,18 @@ def get_transfer_model_param_map():
                                       class_name='DenseNet201',
                                       input_size=(224, 224),
                                       preprocessing_func=preprocess_input_trainset),
-        'Xception': BaseModelParam(module_name='tensorflow.keras.applications.xception',
-                                   class_name='Xception',
-                                   input_size=(299, 299),
-                                   preprocessing_func=preprocess_input_xception),
-        'NASNetLarge': BaseModelParam(module_name='tensorflow.keras.applications.nasnet',
-                                      class_name='NASNetLarge',
-                                      input_size=(331, 331),
-                                      preprocessing_func=preprocess_input_nasnet),
+        'InceptionV3': BaseModelParam(module_name='tensorflow.keras.applications.inception_v3',
+                                      class_name='InceptionV3',
+                                      input_size=(299, 299),
+                                      preprocessing_func=preprocess_input_trainset),
         'InceptionResNetV2': BaseModelParam(module_name='tensorflow.keras.applications.inception_resnet_v2',
                                             class_name='InceptionResNetV2',
                                             input_size=(299, 299),
-                                            preprocessing_func=preprocess_input_inception_resnet_v2),
+                                            preprocessing_func=preprocess_input_trainset),
+        'Xception': BaseModelParam(module_name='tensorflow.keras.applications.xception',
+                                   class_name='Xception',
+                                   input_size=(299, 299),
+                                   preprocessing_func=preprocess_input_trainset),
         'VGG16': BaseModelParam(module_name='tensorflow.keras.applications.vgg16',
                                       class_name='VGG16',
                                       input_size=(224, 224),
@@ -69,14 +66,6 @@ def get_transfer_model_param_map():
                                       class_name='EfficientNetB4',
                                       input_size=(380, 380),
                                       preprocessing_func=preprocess_input_trainset), 
-        'EfficientNetB5': BaseModelParam(module_name='efficientnet.tfkeras',
-                                      class_name='EfficientNetB5',
-                                      input_size=(456, 456),
-                                      preprocessing_func=preprocess_input_trainset), 
-        'EfficientNetB6': BaseModelParam(module_name='efficientnet.tfkeras',
-                                      class_name='EfficientNetB6',
-                                      input_size=(456, 456),
-                                      preprocessing_func=preprocess_input_trainset),
         'ResNet50': BaseModelParam(module_name='tensorflow.keras.applications.resnet',
                                       class_name='ResNet50',
                                       input_size=(224, 224),

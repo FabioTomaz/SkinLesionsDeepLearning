@@ -78,9 +78,9 @@ def load_image(filename, target_size=(224,224)):
     return img
 
 
-def augment(source_dataframe, images_path, operations, n):
+def augment(source_dataframe, operations, n, img_size):
     n = n - source_dataframe.shape[0] 
-    source_dataframe['img'] = source_dataframe.apply(lambda row: load_image(os.path.join(images_path, row.image+'.jpg')), axis=1)
+    source_dataframe['img'] = source_dataframe.apply(lambda row: load_image(row.path, target_size=img_size), axis=1)
 
     augmentor_df = source_dataframe.sample(n=n, replace=True)
 
@@ -122,24 +122,24 @@ def get_augmentation_operations():
     return operations
 
 
-def sample(df_ground_truth, images_path, count_per_category, img_size=None):
+def sample(df_ground_truth, images_path, count_per_category, img_size=(224,224)):
     result = pd.DataFrame()
     for i, _ in enumerate(count_per_category):
         category_samples = df_ground_truth.loc[df_ground_truth['category'] == i]
         if(count_per_category[i] > category_samples.shape[0]):
             # oversample
             print(f'Augmenting {category_samples.shape[0]} samples from class {i} into approximately {count_per_category[i]} samples...')
-            samples = augment(category_samples, images_path, get_augmentation_operations(), count_per_category[i])
+            samples = augment(category_samples, get_augmentation_operations(), count_per_category[i], img_size)
         elif(count_per_category[i] < category_samples.shape[0]):
             # keep undersample 
             print(f'Undersampling {category_samples.shape[0]} samples from class {i} into approximately {count_per_category[i]} samples...')
             samples = category_samples.sample(n=count_per_category[i])
-            samples['img'] = samples.apply(lambda row: load_image(os.path.join(images_path, row.image+'.jpg')), axis=1)
+            samples['img'] = samples.apply(lambda row: load_image(os.path.join(images_path, row.image+'.jpg'), target_size=img_size), axis=1)
         else:
             # Keep original samples
             print(f'Keeping original {category_samples.shape[0]} samples from class {i} ...')
             samples = category_samples.copy()
-            samples['img'] = category_samples.apply(lambda row: load_image(os.path.join(images_path, row.image+'.jpg')), axis=1)
+            samples['img'] = category_samples.apply(lambda row: load_image(os.path.join(images_path, row.image+'.jpg'), target_size=img_size), axis=1)
         
         result = result.append(samples) 
 
@@ -149,6 +149,7 @@ def sample(df_ground_truth, images_path, count_per_category, img_size=None):
 
 def process(
     images_path, 
+    test_folder,
     descriptions_filename, 
     target_img_size, 
     training_samples, 
@@ -162,7 +163,11 @@ def process(
     else:
         df_ground_truth, category_names, unknown_category = load_isic_training_data(images_path, descriptions_filename)
 
-    df_train, df_test = train_validation_split(df_ground_truth)
+    if test_folder is None:
+        df_train, df_test = train_validation_split(df_ground_truth)
+    else:
+        df_train = df_ground_truth
+        df_test = get_dataframe_from_img_folder(test_folder)
 
     if unknown_images_path and unknown_train is not True:
         df_out_dist = get_dataframe_from_img_folder(unknown_images_path, has_path_col=True)
@@ -207,7 +212,7 @@ def process(
 
     # Process test set
     df_test = df_test.sample(frac=1).reset_index(drop=True)
-    df_test['img'] = df_test.apply(lambda row: load_image(row.path), axis=1)
+    df_test['img'] = df_test.apply(lambda row: load_image(row.path, target_size=target_img_size), axis=1)
 
     # Removing unnecessary path column
     del result['path']
@@ -243,9 +248,10 @@ def save_no_unknown(df_test, no_unknown_descriptions_file):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--images', default="./isic2019/ISIC_2019_Training_Input")
+    parser.add_argument('--test', default=None)
     parser.add_argument('--unknown-images', default=None)
     parser.add_argument('--unknown-train', dest='unknown_train', action='store_true', default=False)
-    parser.add_argument('--descriptions', default="./isic2019/ISIC_2019_Training_GroundTruth_Original.csv")
+    parser.add_argument('--descriptions', default="./isic2019/ISIC_2019_Training_GroundTruth.csv")
     parser.add_argument('--target-size', type=int, default=224)
     parser.add_argument('--training-samples', type=int, default=None)
     parser.add_argument('--class-balance', dest='classbalance', action='store_true', default=False)
@@ -257,6 +263,7 @@ if __name__ == '__main__':
 
     df_train, df_test = process(
         args.images, 
+        args.test,
         args.descriptions, 
         (args.target_size, args.target_size), 
         args.training_samples, 
@@ -271,15 +278,19 @@ if __name__ == '__main__':
         os.path.join(args.output, 'ISIC_2019_Training_GroundTruth.csv')
     )
 
-    # Save test ground truth file without unknown samples
-    save_no_unknown(
-        df_test, 
-        os.path.join(args.output, 'ISIC_2019_Test_GroundTruth.csv')
-    )
+    if args.unknown_images is not None:
+        # Save test ground truth file without unknown samples
+        save_no_unknown(
+            df_test, 
+            os.path.join(args.output, 'ISIC_2019_Test_GroundTruth.csv')
+        )
 
     save(
         df_test, 
         os.path.join(args.output, 'ISIC_2019_Test_Input'), 
-        os.path.join(args.output, 'ISIC_2019_Test_GroundTruth_Unknown.csv')
+        os.path.join(
+            args.output, 
+            'ISIC_2019_Test_GroundTruth_Unknown.csv' if args.unknown_images is not None else 'ISIC_2019_Test_GroundTruth.csv' 
+        )
     )
     

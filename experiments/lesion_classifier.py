@@ -88,12 +88,12 @@ class LesionClassifier():
 
         p_train = CustomPipeline()
         # Random crop
-        #p_train.add_operation(CropPercentage(
-        #    probability=1, 
-        #    percentage_area=0.8, 
-        #    centre=False,
-        #    randomise_percentage_area=True
-        #))
+        p_train.add_operation(CropPercentage(
+            probability=0.5, 
+            percentage_area=0.9, 
+            centre=False,
+            randomise_percentage_area=True
+        ))
         # Rotate the image by either 90, 180, or 270 degrees randomly
         p_train.rotate_random_90(probability=0.5)
         # Flip the image along its vertical axis
@@ -107,7 +107,7 @@ class LesionClassifier():
         # Random change saturation of the image
         p_train.random_color(probability=0.5, min_factor=0.9, max_factor=1.1)
         # Resize the image to the desired input size of the model
-        # p_train.resize(probability=1, width=input_size[0], height=input_size[1])
+        p_train.resize(probability=1, width=input_size[0], height=input_size[1])
 
         return p_train
 
