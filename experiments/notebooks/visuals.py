@@ -273,7 +273,7 @@ def plot_class_dist(category_names, count_per_category):
     return fig 
 
 
-def plot_hyperparameter_comparisson_metric(
+def plot_hyperparameter_over_epochs(
     models_info, 
     metric,
     y_min,
@@ -286,19 +286,7 @@ def plot_hyperparameter_comparisson_metric(
     epoch_min=0, 
     epoch_max=100, 
 ):
-    models_info_list = []
-    for model_info in models_info:
-        add=True
-        for key, value in constant_parameters.items():
-            if value is None or model_info["hyperparameters"][key] == "None":
-                if str(value) != model_info["hyperparameters"][key]:
-                    add=False
-                    break
-            elif float(model_info["hyperparameters"][key]) != float(value):
-                add=False
-                break
-        if add==True:
-            models_info_list.append(model_info)
+    models_info_list = filter_models_info(models_info, parameters=constant_parameters)
 
     if(len(models_info_list)==0):
         return  
@@ -382,6 +370,56 @@ def plot_model_comparisson(
     
     return fig
 
+# def plot_model_parameter_comparisson(
+#     models_infos,
+#     models_parameters,
+#     parameter_label="", 
+#     metric_label="",
+#     title="", 
+#     figsize=(20, 10),
+#     rows=2,
+#     cols=3
+# ): 
+#     fig, axes = plt.subplots(rows, cols, figsize=figsize)
+#     print(axes)
+
+#     for i, model_parameters in enumerate(models_parameters):
+#         row=i%rows
+#         col=i%cols
+
+#         models_info = filter_models_info(
+#             models_infos,
+#             models = [key for key, value in model_parameters.items()]
+#         )
+
+#         parameter = []
+#         scalars_train = []
+#         scalars_val = []
+#         labels = []
+#         for model_info in models_info:
+#             # compute metric and associate it with model
+#             parameter.append(model_parameters[model_info["model"]])
+#             scalars_train.append(round(get_log_metric(model_info["log"], metric="balanced_accuracy")*100,2))
+#             scalars_val.append(round(get_log_metric(model_info["log"])*100,2))
+#             labels.append(model_info["model"])
+                
+#         parameter, scalars_val, scalars_train, labels = zip(*sorted(zip(parameter, scalars_val, scalars_train, labels)))
+
+#         axes[row+col].plot(parameter, scalars_train, '.b-', label="Train")
+#         axes[row+col].plot(parameter, scalars_val, '.r-', label="Validation")
+#         axes[row+col].set_title(title)
+#         axes[row+col].set(xlabel=parameter_label, ylabel=metric_label)
+
+#         axes[row+col].legend()
+#         axes[row+col].grid(True)
+
+#         for i in range(len(labels)):
+#             axes[row+col].annotate(labels[i], (parameter[i]+2, scalars_val[i]))
+#             axes[row+col].annotate(labels[i], (parameter[i]+2, scalars_train[i]))
+
+#     fig.tight_layout()
+#     return fig
+
 def plot_model_parameter_comparisson(
     models_info,
     model_parameters,
@@ -417,8 +455,45 @@ def plot_model_parameter_comparisson(
     #ax.set_yscale("linear")
 
     for i in range(len(labels)):
-        ax.annotate(labels[i], (parameter[i]+2, scalars_val[i]))
-        ax.annotate(labels[i], (parameter[i]+2, scalars_train[i]))
+        ax.annotate(labels[i], (parameter[i], scalars_val[i]+0.1))
+        ax.annotate(labels[i], (parameter[i], scalars_train[i]+0.1))
+
+    fig.tight_layout()
+
+    return fig
+
+
+def plot_hyperparameter_comparisson(
+    models_info,
+    hyperparameter,
+    parameter_label="", 
+    metric_label="",
+    title="", 
+    figsize=(7, 5)
+): 
+    parameter = []
+    scalars_train = []
+    scalars_val = []
+    for model_info in models_info:
+        # compute metric and associate it with model
+        parameter.append(model_info["hyperparammeters"][hyperparameter])
+        scalars_train.append(round(get_log_metric(model_info["log"], metric="balanced_accuracy")*100,2))
+        scalars_val.append(round(get_log_metric(model_info["log"], metric="val_balanced_accuracy")*100,2))
+            
+    fig, ax = plt.subplots(figsize=figsize)
+
+    parameter, scalars_val, scalars_train = zip(*sorted(zip(parameter, scalars_val, scalars_train)))
+
+    ax.plot(parameter, scalars_train, '.b-', label="Train")
+    ax.plot(parameter, scalars_val, '.r-', label="Validation")
+    ax.set_title(title)
+    ax.set(xlabel=parameter_label, ylabel=metric_label)
+
+    ax.legend()
+    ax.grid(True)
+
+    #ax.set_xscale("log")
+    #ax.set_yscale("linear")
 
     fig.tight_layout()
 

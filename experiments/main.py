@@ -1,10 +1,12 @@
-import argparse
 import os
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
+
+import argparse
 import datetime
 # Import layers to load model
 import efficientnet.tfkeras
-from tensorflow.keras.models import load_model
 from tensorflow.keras import backend as K
+from tensorflow.keras.models import load_model
 from tensorflow.keras import utils
 from data.data import load_isic_training_data, load_isic_training_and_out_dist_data, train_validation_split, compute_class_weight_dict, get_dataframe_from_img_folder
 from vanilla_classifier import VanillaClassifier
@@ -13,9 +15,6 @@ from metrics import balanced_accuracy
 from base_model_param import get_transfer_model_param_map
 from lesion_classifier import LesionClassifier
 from utils import ensemble_predictions, formated_hyperparameter_str
-
-# Use it to choose which GPU to train on
-# os.environ["CUDA_VISIBLE_DEVICES"]="3"
 
 def main():
     parser = argparse.ArgumentParser(description='ISIC-2019 Skin Lesion Classifier')
