@@ -90,7 +90,7 @@ class LesionClassifier():
         # Random crop
         p_train.add_operation(CropPercentage(
             probability=0.5, 
-            percentage_area=0.9, 
+            percentage_area=0.85, 
             centre=False,
             randomise_percentage_area=True
         ))

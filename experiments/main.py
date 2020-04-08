@@ -1,5 +1,7 @@
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="3"
+from utils import ensemble_predictions, formated_hyperparameter_str, get_gpu_index
+print("GPU DEVICE: " + str(get_gpu_index()))
+os.environ["CUDA_VISIBLE_DEVICES"]=str(get_gpu_index())
 
 import argparse
 import datetime
@@ -14,12 +16,12 @@ from transfer_learn_classifier import TransferLearnClassifier
 from metrics import balanced_accuracy
 from base_model_param import get_transfer_model_param_map
 from lesion_classifier import LesionClassifier
-from utils import ensemble_predictions, formated_hyperparameter_str
 
 def main():
     parser = argparse.ArgumentParser(description='ISIC-2019 Skin Lesion Classifier')
     parser.add_argument('data', metavar='DIR', help='path to data folder')
     parser.add_argument('--testfolder', metavar='DIR', help='path to test folder', default=None)
+    parser.add_argument('--kfold', help='Number of folds for k-fold cross validation (default: %(default)s)', default=None)
     parser.add_argument('--batchsize', type=int, help='Batch size (default: %(default)s)', default=32)
     parser.add_argument('--felr', type=float, help='Feature extractor learning rate (default: %(default)s)', default=1e-3)
     parser.add_argument('--ftlr', type=float, help='Fine tuning learning rate (default: %(default)s)', default=1e-5)
@@ -36,7 +38,7 @@ def main():
                             'DenseNet169',
                             'DenseNet201', 
                             'Xception', 
-                            'NASNetLarge', 
+                            'InceptionV3', 
                             'InceptionResNetV2', 
                             'VGG16', 
                             'VGG19', 
@@ -141,6 +143,7 @@ def main():
     # Predict validation set
     if args.predval:
         os.makedirs(pred_result_folder_val, exist_ok=True)
+        print("CLASS WEIGHTS >> " + str(class_weights))
 
         hyperparameter_str = formated_hyperparameter_str(
             fe_epochs,
@@ -150,8 +153,10 @@ def main():
             dropout,
             batch_size,
             len(df_val['path'].tolist()) + len(df_train['path'].tolist()),
-            len(set(class_weights)) <= 1
+            len(set([round(value, 2) for value in class_weights])) <= 1
         )
+
+        print(hyperparameter_str)
 
         postfixes = ['best_balanced_acc', 'best_loss', 'latest']
         for postfix in postfixes:
@@ -214,7 +219,7 @@ def main():
             dropout,
             batch_size,
             len(df_val['path'].tolist()) + len(df_train['path'].tolist()),
-            len(set(class_weights)) <= 1,
+            len(set([round(value, 2) for value in class_weights])) <= 1
         )
         postfix = 'best_balanced_acc'
         for m in models_to_predict:
@@ -224,6 +229,7 @@ def main():
                 hyperparameter_str,
                 "{}.hdf5".format(postfix)
             )
+            print("Filepath " + model_filepath)
             if os.path.exists(model_filepath):
                 print("===== Predict test data using \"{}_{}\" model =====".format(m['model_name'], postfix))
                 

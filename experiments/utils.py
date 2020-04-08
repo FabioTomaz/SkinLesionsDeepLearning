@@ -3,6 +3,7 @@ from tensorflow.keras import backend as K
 import numpy as np
 import pandas as pd
 import os
+import subprocess as sp
 import cv2
 
 def path_to_tensor(img_path, size=(224, 224)):
@@ -263,3 +264,14 @@ def get_hyperparameters_from_str(hyperparameter_str):
         if(len(split)==2):
             hyperparameters[split[0]] = split[1]
     return hyperparameters
+
+def get_gpu_index():
+    """ Returns available gpu index or None if none is available
+    """
+    _output_to_list = lambda x: x.decode('ascii').split('\n')[:-1]
+
+    COMMAND = "nvidia-smi --query-gpu=utilization.memory --format=csv"
+    memory_free_info = _output_to_list(sp.check_output(COMMAND.split()))[1:]
+    memory_free_values = [int(x.split()[0]) for i, x in enumerate(memory_free_info)]
+    memory_min_val = min(memory_free_values)
+    return memory_free_values.index(memory_min_val) if memory_min_val < 10 else None

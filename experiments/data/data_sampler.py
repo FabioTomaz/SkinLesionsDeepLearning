@@ -187,6 +187,8 @@ def process(
     # Calculate number of samples per class
     samples_per_category = [None] * len(count_per_category)
     if class_balance:
+        if (training_samples is None):
+            training_samples=total_sample_count
         samples_per_category = [floor(training_samples/len(count_per_category)) for i in count_per_category]
     else:
         for i, _ in count_per_category.most_common():
@@ -257,9 +259,6 @@ if __name__ == '__main__':
     parser.add_argument('--class-balance', dest='classbalance', action='store_true', default=False)
     parser.add_argument('--output', default="./isic2019/sampled", required=True)
     args = parser.parse_args()
-
-    if(args.classbalance and not args.training_samples):
-        raise ValueError("Must indicate --training-samples when using --class-balance") 
 
     df_train, df_test = process(
         args.images, 

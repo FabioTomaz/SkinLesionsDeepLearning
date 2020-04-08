@@ -276,22 +276,30 @@ def plot_class_dist(category_names, count_per_category):
 def plot_hyperparameter_over_epochs(
     models_info, 
     metric,
-    y_min,
-    y_max,
-    hyperparameters_compared=[],
+    metric_label,
+    hyperparameter_compared,
+    hyperparameter_compared_label,
     constant_parameters={},
     title="", 
+    subtitle=False,
     figsize=(14, 6), 
+    pretrainedmodel="DenseNet201",
     feature_extract_epochs=None,
-    epoch_min=0, 
-    epoch_max=100, 
+    epoch_max=None, 
+    y_min=None,
+    y_max=None,
+    y_scale="linear"
 ):
-    models_info_list = filter_models_info(models_info, parameters=constant_parameters)
+    models_info_list = filter_models_info(
+        models_info, 
+        models=[pretrainedmodel],
+        parameters=constant_parameters
+    )
 
     if(len(models_info_list)==0):
         return  
 
-    fig, (ax1) = plt.subplots(
+    fig, ax1 = plt.subplots(
         nrows=1, 
         ncols=1, 
         figsize=figsize
@@ -299,35 +307,48 @@ def plot_hyperparameter_over_epochs(
     fig.patch.set_facecolor('white')
     fig.suptitle(title, fontsize=14)
 
+    log_metrics=[]
+    param_values=[]
     for model_info in models_info_list:
-        df = pd.read_csv(model_info["log"])
-        label = ""
-        for hyperparameter in hyperparameters_compared:
-            label += hyperparameter + "=" + model_info["hyperparameters"][hyperparameter] + " "
-        ax1.plot(df[metric], label=label)
+        log_metrics.append(pd.read_csv(model_info["log"])[metric])
+        param_values.append(float(model_info["hyperparameters"][hyperparameter_compared] if model_info["hyperparameters"][hyperparameter_compared] != "None" else 0))
+    
+    param_values, log_metrics = zip(*sorted(zip(param_values, log_metrics)))
 
-    subtitle = ""
-    for key, value in model_info["hyperparameters"].items():
-        if key not in hyperparameters_compared:
-            subtitle += key + "=" + value + ", " 
+    for i in range(len(log_metrics)):
+        label = (hyperparameter_compared_label + "=" + str(param_values[i]) + " ")
+        ax1.plot(log_metrics[i], label=label)
 
-    ax1.set(title=subtitle, xlabel='Epoch', ylabel=metric)
-    ax1.set_xlim([epoch_min, epoch_max])
-    ax1.set_ylim(bottom =y_min, top=y_max)
+    if subtitle is True:
+        subtitle = ""
+        for key, value in model_info["hyperparameters"].items():
+            if key is not hyperparameter_compared:
+                subtitle += key + "=" + value + ", " 
+
+    ax1.set(title=subtitle, xlabel='Epoch', ylabel=metric_label)
+    ax1.set_xlim([0, epoch_max])
+    if y_min is not None:
+        ax1.set_ylim(bottom =y_min)
+    if y_max is not None:
+        ax1.set_ylim(top=y_max)
+    ax1.grid(True)
     ax1.legend()
 
     if feature_extract_epochs is not None:
         ax1.axvline(feature_extract_epochs-1, color='green', label='Start Fine Tuning')
         #ax1.text(feature_extract_epochs-1, -0.06, str(feature_extract_epochs-1))
-        ax1.legend()
+    #    ax1.legend()
     
+    ax1.set_xscale("linear")
+    ax1.set_yscale(y_scale)
+
     return fig
 
 
 def plot_model_comparisson(
     models_info,
-    metric_func, 
-    metric,
+    metrics, 
+    metric_labels,
     constant_parameters={},
     title="", 
     figsize=(10, 5), 
@@ -338,26 +359,32 @@ def plot_model_comparisson(
     models_info_list = filter_models_info(models_info, parameters=constant_parameters)
 
     xticklabels = []
-    scalars = []
+    scalars0 = []
+    scalars1 = []
     for model_info in models_info_list:
         if model_info["pred_val"] is not None:
-            # read true a prediction categories from validation dataset
-            df = pd.read_csv(os.path.join(model_info["pred_val"], "no_unknown", "best_balanced_acc.csv"))
-            y_true = df['category']
-            y_pred = df['pred_category']
+            # # read true a prediction categories from validation dataset
+            # df = pd.read_csv(os.path.join(model_info["pred_val"], "no_unknown", "best_balanced_acc.csv"))
+            # y_true = df['category']
+            # y_pred = df['pred_category']
 
             # compute metric and associate it with model
             xticklabels.append(model_info["model"])
-            scalars.append(round(metric_func(y_true, y_pred)*100,2))
+            scalars0.append(round(get_log_metric(model_info["log"], metric=metrics[0])*100,2))
+            scalars1.append(round(get_log_metric(model_info["log"], metric=metrics[1])*100,2))
+
+    scalars0, scalars1, xticklabels = zip(*sorted(zip(scalars0, scalars1, xticklabels)))
         
     x = np.arange(len(xticklabels))  # the label locations
-    width = 0.60  # the width of the bars
+    width = 0.40  # the width of the bars
 
     # Create grouped bar chart
     fig, ax = plt.subplots(figsize=figsize)
     ax.set_title(title)
     fig.patch.set_facecolor('white')
-    rects1 = ax.bar(x, scalars, width, label=metric)
+
+    rects0 = ax.bar(x - width/2, scalars0, width, label=metric_labels[0])
+    rects1 = ax.bar(x + width/2, scalars1, width, label=metric_labels[1])
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_xticks(x)
@@ -365,6 +392,7 @@ def plot_model_comparisson(
     ax.set(xlabel="Model", ylabel="Metric Score (%)")
     ax.set_ylim(bottom =y_min, top=y_max)
     ax.legend()
+    autolabel(ax, rects0)
     autolabel(ax, rects1)
     fig.tight_layout()
     
@@ -466,20 +494,24 @@ def plot_model_parameter_comparisson(
 def plot_hyperparameter_comparisson(
     models_info,
     hyperparameter,
+    val_metric="val_balanced_accuracy",
+    train_metric="balanced_accuracy",
     parameter_label="", 
-    metric_label="",
+    metric_label="Balanced Accuracy(%)",
     title="", 
-    figsize=(7, 5)
+    figsize=(7, 5),
+    x_scale="linear"
 ): 
     parameter = []
     scalars_train = []
     scalars_val = []
     for model_info in models_info:
+        param = 0.0 if model_info["hyperparameters"][hyperparameter]=="None" else float(model_info["hyperparameters"][hyperparameter]) 
         # compute metric and associate it with model
-        parameter.append(model_info["hyperparammeters"][hyperparameter])
-        scalars_train.append(round(get_log_metric(model_info["log"], metric="balanced_accuracy")*100,2))
-        scalars_val.append(round(get_log_metric(model_info["log"], metric="val_balanced_accuracy")*100,2))
-            
+        parameter.append(param)
+        scalars_train.append(round(get_log_metric(model_info["log"], metric=train_metric)*100,2))
+        scalars_val.append(round(get_log_metric(model_info["log"], metric=val_metric)*100,2))
+        
     fig, ax = plt.subplots(figsize=figsize)
 
     parameter, scalars_val, scalars_train = zip(*sorted(zip(parameter, scalars_val, scalars_train)))
@@ -492,8 +524,8 @@ def plot_hyperparameter_comparisson(
     ax.legend()
     ax.grid(True)
 
-    #ax.set_xscale("log")
-    #ax.set_yscale("linear")
+    ax.set_xscale(x_scale)
+    ax.set_yscale("linear")
 
     fig.tight_layout()
 
