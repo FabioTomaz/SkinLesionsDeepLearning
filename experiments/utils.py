@@ -241,6 +241,7 @@ def logistic(x, x0=0, L=1, k=1):
 
 def formated_hyperparameter_str(
     feepochs,
+    ftepochs,
     felr,
     ftlr,
     lmda,
@@ -254,7 +255,7 @@ def formated_hyperparameter_str(
     dropout_str = "None" if dropout == None else format(dropout, 'f')
     l2_str = "None" if lmda == None else format(lmda, 'f')
     balanced_int = 1 if balanced is True else 0
-    return f'balanced_{balanced_int}-samples_{samples}-feepochs_{feepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}'
+    return f'balanced_{balanced_int}-samples_{samples}-feepochs_{feepochs}-ftepochs_{ftepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}'
 
 def get_hyperparameters_from_str(hyperparameter_str):
     hyperparameter_combination = hyperparameter_str.split("-")

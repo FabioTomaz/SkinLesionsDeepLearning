@@ -52,8 +52,7 @@ def train_validation_split(df, test_size=0.2):
 def compute_class_weight_dict(df):
     """Compute class weights for weighting the loss function on imbalanced data."""
     class_weights = class_weight.compute_class_weight("balanced", np.unique(df['category']), df['category'])
-    class_weight_dict = dict(enumerate(class_weights))
-    return class_weight_dict, class_weights
+    return dict(enumerate(class_weights))
 
 def get_dataframe_from_img_folder(img_folder, has_path_col=True):
     if has_path_col:

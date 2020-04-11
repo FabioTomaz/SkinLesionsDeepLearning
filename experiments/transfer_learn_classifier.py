@@ -6,8 +6,9 @@ from tensorflow.keras.layers import Dense, Activation, GlobalAveragePooling2D, D
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
-from tensorflow import distribute
+#from tensorflow import distribute
 from utils import formated_hyperparameter_str
+import os
 
 class TransferLearnClassifier(LesionClassifier):
     """Skin lesion classifier based on transfer learning.
@@ -26,7 +27,8 @@ class TransferLearnClassifier(LesionClassifier):
         l2=None,
         feature_extract_epochs = 6,
         feature_extract_start_lr = 1e-3,
-        fine_tuning_start_lr = 1e-5, # Use a much lower learning rate in the fine tuning step
+        fine_tuning_epochs=100,
+        fine_tuning_start_lr = 1e-5, # Lower learning rate in the fine tuning step
         batch_size=32, 
         max_queue_size=10, 
         image_data_format=None, 
@@ -45,7 +47,8 @@ class TransferLearnClassifier(LesionClassifier):
         self.metrics = metrics
 
         self.feature_extract_epochs = feature_extract_epochs
-        self.mirrored_strategy = distribute.MirroredStrategy()
+        self.fine_tuning_epochs = fine_tuning_epochs
+        #self.mirrored_strategy = distribute.MirroredStrategy()
 
         # Learning rates
         self.start_lr = feature_extract_start_lr
@@ -112,64 +115,25 @@ class TransferLearnClassifier(LesionClassifier):
             categories_val=categories_val
         )
 
-    def train(self, epoch_num, workers=1):
-        hyperparameter_string = formated_hyperparameter_str(
-            self.feature_extract_epochs,
-            self.start_lr,
-            self.fine_tuning_start_lr,
-            self.l2,
-            self.dropout,
-            self.batch_size,
-            len(self.image_paths_train) + len(self.image_paths_val),
-            all(value == 1 for value in self.class_weight.values()),
+
+    def train(self, k_split=0, workers=1):
+        model_subdir = os.path.join(
+            formated_hyperparameter_str(
+                self.feature_extract_epochs,
+                self.fine_tuning_epochs,
+                self.start_lr,
+                self.fine_tuning_start_lr,
+                self.l2,
+                self.dropout,
+                self.batch_size,
+                len(self.image_paths_train) + len(self.image_paths_val),
+                all(round(value, 2) == 1 for value in self.class_weight.values()),
+            ),
+            str(k_split)
         )
 
         # Checkpoint Callbacks
-        checkpoints = super()._create_checkpoint_callbacks(hyperparameter_string)
-
-        # This ReduceLROnPlateau is just a workaround to make csv_logger record learning rate, and won't affect learning rate during feature extraction epochs.
-        reduce_lr = ReduceLROnPlateau(
-            patience=self.feature_extract_epochs+10, 
-            verbose=1
-        )
-
-        # Callback that streams epoch results to a csv file.
-        csv_logger = super()._create_csvlogger_callback(hyperparameter_string)
-
-        # Callback that streams epoch results to tensorboard
-        tensorboard_logger = super()._create_tensorboard_logger(hyperparameter_string)
-
-        ### Feature extraction
-        self._model.fit(
-            self.generator_train,
-            class_weight=self.class_weight,
-            max_queue_size=self.max_queue_size,
-            workers=workers,
-            use_multiprocessing=False,
-            steps_per_epoch=len(self.image_paths_train)//self.batch_size,
-            epochs=self.feature_extract_epochs,
-            verbose=1,
-            callbacks=(checkpoints + [reduce_lr, csv_logger, tensorboard_logger]),
-            validation_data=self.generator_val,
-            validation_steps=len(self.image_paths_val)//self.batch_size
-        )
-
-        ### Fine tuning. It should only be attempted after you have trained the top-level classifier with the pre-trained model set to non-trainable.
-        print('===== Unfreeze the base model =====')
-        for layer in self._base_model.layers:
-            layer.trainable = True
-
-        #with self.mirrored_strategy.scope():
-        # Compile the model
-        self._model.compile(
-            optimizer=Adam(lr=self.fine_tuning_start_lr), 
-            loss='categorical_crossentropy', 
-            metrics=self.metrics
-        )
-        self._model.summary()
-
-        # Re-create Checkpoint Callbacks
-        checkpoints = super()._create_checkpoint_callbacks(hyperparameter_string)
+        checkpoints = super()._create_checkpoint_callbacks(model_subdir)
 
         # Reduce learning rate when the validation loss has stopped improving.
         reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=8, min_lr=1e-7, verbose=1)
@@ -177,23 +141,69 @@ class TransferLearnClassifier(LesionClassifier):
         # Stop training when the validation loss has stopped improving.
         early_stop = EarlyStopping(monitor='val_loss', patience=16, verbose=1)
 
-        self.generator_train.reset()
-        self.generator_val.reset()
-        
-        self._model.fit(
-            self.generator_train,
-            class_weight=self.class_weight,
-            max_queue_size=self.max_queue_size,
-            workers=workers,
-            use_multiprocessing=False,
-            steps_per_epoch=len(self.image_paths_train)//self.batch_size,
-            epochs=epoch_num,
-            verbose=1,
-            callbacks=(checkpoints + [reduce_lr, early_stop, csv_logger, tensorboard_logger]),
-            validation_data=self.generator_val,
-            validation_steps=len(self.image_paths_val)//self.batch_size,
-            initial_epoch=self.feature_extract_epochs
-        )
+        # Callback that streams epoch results to a csv file.
+        csv_logger = super()._create_csvlogger_callback(model_subdir)
+
+        # Callback that streams epoch results to tensorboard
+        tensorboard_logger = super()._create_tensorboard_logger(model_subdir)
+
+        if(self.feature_extract_epochs>0):
+            ### Feature extraction
+            self._model.fit(
+                self.generator_train,
+                class_weight=self.class_weight,
+                max_queue_size=self.max_queue_size,
+                workers=workers,
+                use_multiprocessing=True,
+                steps_per_epoch=len(self.image_paths_train)//self.batch_size,
+                epochs=self.feature_extract_epochs,
+                verbose=1,
+                callbacks=(checkpoints + [reduce_lr, early_stop, csv_logger, tensorboard_logger]),
+                validation_data=self.generator_val,
+                validation_steps=len(self.image_paths_val)//self.batch_size,
+                shuffle=False
+            )
+        else:
+            print('===== No weight initialization =====')
+
+        if(self.fine_tuning_epochs>0):
+            ### Fine tuning. It should only be attempted after you have trained the top-level classifier with the pre-trained model set to non-trainable.
+            print('===== Unfreeze the base model =====')
+            for layer in self._base_model.layers:
+                layer.trainable = True
+
+            #with self.mirrored_strategy.scope():
+            # Compile the model
+            self._model.compile(
+                optimizer=Adam(lr=self.fine_tuning_start_lr), 
+                loss='categorical_crossentropy', 
+                metrics=self.metrics
+            )
+            self._model.summary()
+
+            # Re-create Checkpoint Callbacks
+            checkpoints = super()._create_checkpoint_callbacks(model_subdir)
+
+            self.generator_train.reset()
+            self.generator_val.reset()
+            
+            self._model.fit(
+                self.generator_train,
+                class_weight=self.class_weight,
+                max_queue_size=self.max_queue_size,
+                workers=workers,
+                use_multiprocessing=True,
+                steps_per_epoch=len(self.image_paths_train)//self.batch_size,
+                epochs=self.fine_tuning_epochs,
+                verbose=1,
+                callbacks=(checkpoints + [reduce_lr, early_stop, csv_logger, tensorboard_logger]),
+                validation_data=self.generator_val,
+                validation_steps=len(self.image_paths_val)//self.batch_size,
+                initial_epoch=self.feature_extract_epochs,
+                shuffle=False
+            )
+        else:
+            print('===== No fine tuning =====')
 
     @property
     def model(self):

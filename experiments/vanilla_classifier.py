@@ -10,14 +10,27 @@ from lesion_classifier import LesionClassifier
 from base_model_param import BaseModelParam
 
 class VanillaClassifier(LesionClassifier):
-    """Skin lesion classifier based on transfer learning.
+    """ NOT IMPLEMENTED!!! Model trained from scratch for skin lesion classification
 
     # Arguments
         base_model_param: Instance of `BaseModelParam`.
     """
 
-    def __init__(self, model_folder, input_size=(224, 224), image_data_format=None, num_classes=None, batch_size=32, max_queue_size=10, class_weight=None,
-        metrics=None, image_paths_train=None, categories_train=None, image_paths_val=None, categories_val=None):
+    def __init__(
+        self, 
+        model_folder, 
+        input_size=(224, 224), 
+        image_data_format=None, 
+        num_classes=None, 
+        batch_size=32, 
+        max_queue_size=10, 
+        class_weight=None,
+        metrics=None, 
+        image_paths_train=None, 
+        categories_train=None, 
+        image_paths_val=None, 
+        categories_val=None
+    ):
 
         if num_classes is None:
             raise ValueError('num_classes cannot be None')
