@@ -4,20 +4,152 @@ import math
 import os
 import random
 import shutil
+import json
 import time
 from collections import Counter
 from math import floor
-
 import numpy as np
 import pandas as pd
 import PIL
 import sklearn.model_selection
 import tensorflow as tf
 from Augmentor import Operations
+from Augmentor.Operations import *
 from tqdm import tqdm
-
 from data import load_isic_training_data, load_isic_training_and_out_dist_data, train_validation_split, get_dataframe_from_img_folder
 
+
+def crop_center(img):
+    width, height = img.size
+    if width == height:
+        return img
+
+    length = min(width, height)
+
+    left = (width - length) // 2
+    upper = (height - length) // 2
+    right = left + length
+    lower = upper + length
+
+    box = (left, upper, right, lower)
+    return img.crop(box)
+
+class CropCenter(Operation):
+    """
+    Class that allows for a custom operation to be performed using Augmentor's
+    standard :class:`~Augmentor.Pipeline.Pipeline` object.
+    """
+    def __init__(self, probability):
+        Operation.__init__(self, probability)
+
+    def perform_operation(self, images):
+        """
+        Perform the custom operation on the passed image(s), returning the
+        transformed image(s).
+        :param images: The image to perform the custom operation on.
+        :return: The transformed image(s) (other functions in the pipeline
+         will expect an image of type PIL.Image)
+        """
+        augmented_images = []
+
+        for image in images:
+            augmented_images.append(crop_center(image))
+
+        return augmented_images
+
+
+def get_augmentation_group(data_aug_group, input_size): 
+    DATA_AUGMENTATION_GROUPS = [
+        # GROUP 0 (NO DATA AUGMENTATION)
+        [
+            # No data augmentations
+            CropCenter(probability=1),
+            # Resize the image to the desired input size 
+            Operations.Resize(probability=1, width=input_size[0], height=input_size[1], resample_filter="BICUBIC")
+        ],
+        # GROUP 1 (Common transformations: rotations, flips, crops, shears)
+        [
+            # Rotate the image by 90 degrees randomly
+            Operations.Rotate(probability=0.5, rotation=-1),
+            # Flip top/bottom
+            Operations.Flip(probability=0.5, top_bottom_left_right="TOP_BOTTOM"),
+            # Flip left/right
+            Operations.Flip(probability=0.5, top_bottom_left_right="LEFT_RIGHT"),
+            # Shear Image
+            Operations.Shear(probability=0.5, max_shear_left=20, max_shear_right=20),
+            # Resize the image to the desired input size 
+            Operations.Crop(probability=1, width=input_size[0], height=input_size[1], centre=False)
+        ],
+        # GROUP 2 (Pixel intensity transformations)
+        [
+            # Rotate the image by 90 degrees randomly
+            Operations.Rotate(probability=0.5, rotation=-1),
+            # Flip top/bottom
+            Operations.Flip(probability=0.5, top_bottom_left_right="TOP_BOTTOM"),
+            # Flip left/right
+            Operations.Flip(probability=0.5, top_bottom_left_right="LEFT_RIGHT"),
+            # Shear Image
+            Operations.Shear(probability=0.5, max_shear_left=20, max_shear_right=20),
+            # Random change brightness of the image
+            Operations.RandomBrightness(probability=0.5, min_factor=0.9,max_factor=1.1),
+            # Random change saturation of the image
+            Operations.RandomColor(probability=0.5, min_factor=0.9,max_factor=1.1),
+            # Random change saturation of the image
+            Operations.RandomContrast(probability=0.5, min_factor=0.7, max_factor=1.0),
+            # Resize the image to the desired input size 
+            Operations.Crop(probability=1, width=input_size[0], height=input_size[1], centre=False)
+        ],
+        # GROUP 3 (Perspective transformations)
+        [
+            # Rotate the image by 90 degrees randomly
+            Operations.Rotate(probability=0.5, rotation=-1),
+            # Flip top/bottom
+            Operations.Flip(probability=0.5, top_bottom_left_right="TOP_BOTTOM"),
+            # Flip left/right
+            Operations.Flip(probability=0.5, top_bottom_left_right="LEFT_RIGHT"),
+            # Shear Image
+            Operations.Shear(probability=0.5, max_shear_left=20, max_shear_right=20),
+            # Skew Image
+            Operations.Skew(probability=0.5, skew_type="TILT", magnitude=1),
+            # Random change brightness of the image
+            Operations.RandomBrightness(probability=0.5, min_factor=0.9,max_factor=1.1),
+            # Random change saturation of the image
+            Operations.RandomColor(probability=0.5, min_factor=0.9,max_factor=1.1),
+            # Random change contrast of the image
+            Operations.RandomContrast(probability=0.5, min_factor=0.7, max_factor=1.0),
+            # Random Distortions
+            Operations.Distort(probability=0.5, grid_width=8, grid_height=8, magnitude=4),
+            # Resize the image to the desired input size 
+            Operations.Crop(probability=1, width=input_size[0], height=input_size[1], centre=False)
+        ],
+        # GROUP 4 (Noise transformations)
+        [
+            # Rotate the image by 90 degrees randomly
+            Operations.Rotate(probability=0.5, rotation=-1),
+            # Flip top/bottom
+            Operations.Flip(probability=0.5, top_bottom_left_right="TOP_BOTTOM"),
+            # Flip left/right
+            Operations.Flip(probability=0.5, top_bottom_left_right="LEFT_RIGHT"),
+            # Shear Image
+            Operations.Shear(probability=0.5, max_shear_left=20, max_shear_right=20),
+            # Skew Image
+            Operations.Skew(probability=0.5, skew_type="TILT", magnitude=1),
+            # Random change brightness of the image
+            Operations.RandomBrightness(probability=0.5, min_factor=0.9,max_factor=1.1),
+            # Random change saturation of the image
+            Operations.RandomColor(probability=0.5, min_factor=0.9,max_factor=1.1),
+            # Random change contrast of the image
+            Operations.RandomContrast(probability=0.5, min_factor=0.7, max_factor=1.0),
+            # Random distortions
+            Operations.Distort(probability=0.5, grid_width=8, grid_height=8, magnitude=4),
+            # Random erasing
+            Operations.RandomErasing(probability=0.5, rectangle_area=0.2),
+            # Resize the image to the desired input size 
+            Operations.Crop(probability=1, width=input_size[0], height=input_size[1], centre=False)
+        ]
+    ]
+
+    return DATA_AUGMENTATION_GROUPS[data_aug_group]
 
 # Mean and STD calculated over the Training Set
 # Mean:[0.6236094091893962, 0.5198354883713194, 0.5038435406338101]
@@ -41,46 +173,23 @@ def standardize(
     return x
 
 
-def load_image(filename, target_size=(224,224)):
+def load_image(filename, target_size=None, center_crop=True):
     assert target_size[0] == target_size[1]
-
-    def _crop(img):
-        width, height = img.size
-        if width == height:
-            return img
-
-        length = min(width, height)
-
-        left = (width - length) // 2
-        upper = (height - length) // 2
-        right = left + length
-        lower = upper + length
-
-        box = (left, upper, right, lower)
-        return img.crop(box)
 
     def _resize(img, target_size):
         return img.resize(target_size, PIL.Image.NEAREST)
 
-    def _correct(img):
-        """
-        Normalize PIL image
-        """
-        arr = np.array(img).astype(float)
-        new_img = PIL.Image.fromarray(standardize(arr).astype(np.uint8),'RGB')
-
-        return new_img
-
     img = PIL.Image.open(filename).convert('RGB')
-    img = _crop(img)
-    img = _resize(img, target_size)
-    #img = _correct(img)
+    if center_crop:
+        img = crop_center(img)
+    if target_size is not None:
+        img = _resize(img, target_size)
     return img
 
 
 def augment(source_dataframe, operations, n, img_size):
     n = n - source_dataframe.shape[0] 
-    source_dataframe['img'] = source_dataframe.apply(lambda row: load_image(row.path, target_size=img_size), axis=1)
+    source_dataframe['img'] = source_dataframe.apply(lambda row: load_image(row.path, center_crop=False), axis=1)
 
     augmentor_df = source_dataframe.sample(n=n, replace=True)
 
@@ -104,32 +213,21 @@ def augment(source_dataframe, operations, n, img_size):
     return source_dataframe
 
 
-def get_augmentation_operations():
-    operations = []
-    # Rotate the image by 90 degrees randomly
-    operations.append(Operations.Rotate(probability=0.5, rotation=-1))
-    # Flip top/bottom
-    operations.append(Operations.Flip(probability=0.5, top_bottom_left_right="TOP_BOTTOM"))
-    # Flip left/right
-    operations.append(Operations.Flip(probability=0.5, top_bottom_left_right="LEFT_RIGHT"))
-    # Shear Image
-    operations.append(Operations.Shear(probability=0.6, max_shear_left=20, max_shear_right=20))
-    # Random change brightness of the image
-    operations.append(Operations.RandomBrightness(probability=0.5, min_factor=0.9,max_factor=1.1))
-    # Random change saturation of the image
-    operations.append(Operations.RandomColor(probability=0.5, min_factor=0.9,max_factor=1.1))
-
-    return operations
-
-
-def sample(df_ground_truth, images_path, count_per_category, img_size=(224,224)):
+def sample(df_ground_truth, images_path, count_per_category, dg_group, img_size=(224,224)):
     result = pd.DataFrame()
     for i, _ in enumerate(count_per_category):
         category_samples = df_ground_truth.loc[df_ground_truth['category'] == i]
         if(count_per_category[i] > category_samples.shape[0]):
             # oversample
             print(f'Augmenting {category_samples.shape[0]} samples from class {i} into approximately {count_per_category[i]} samples...')
-            samples = augment(category_samples, get_augmentation_operations(), count_per_category[i], img_size)
+            aug_pipeline = get_augmentation_group(dg_group, img_size)
+            aug_pipeline.status()
+            samples = augment(
+                category_samples, 
+                aug_pipeline, 
+                count_per_category[i], 
+                img_size
+            )
         elif(count_per_category[i] < category_samples.shape[0]):
             # keep undersample 
             print(f'Undersampling {category_samples.shape[0]} samples from class {i} into approximately {count_per_category[i]} samples...')
@@ -154,6 +252,7 @@ def process(
     target_img_size, 
     training_samples, 
     class_balance,
+    data_augmentation_group,
     unknown_images_path=None,
     unknown_train=False
 ):
@@ -209,6 +308,7 @@ def process(
         df_train,
         images_path, 
         samples_per_category,
+        data_augmentation_group,
         img_size = target_img_size
     )
 
@@ -257,6 +357,7 @@ if __name__ == '__main__':
     parser.add_argument('--target-size', type=int, default=224)
     parser.add_argument('--training-samples', type=int, default=None)
     parser.add_argument('--class-balance', dest='classbalance', action='store_true', default=False)
+    parser.add_argument('--data-augmentation-group', dest='dggroup', default=1, type=int)
     parser.add_argument('--output', default="./isic2019/sampled", required=True)
     args = parser.parse_args()
 
@@ -267,6 +368,7 @@ if __name__ == '__main__':
         (args.target_size, args.target_size), 
         args.training_samples, 
         args.classbalance,
+        args.dggroup,
         unknown_images_path=args.unknown_images,
         unknown_train=args.unknown_train
     )
@@ -292,4 +394,18 @@ if __name__ == '__main__':
             'ISIC_2019_Test_GroundTruth_Unknown.csv' if args.unknown_images is not None else 'ISIC_2019_Test_GroundTruth.csv' 
         )
     )
+
+    metadata = {
+        "path": args.output,
+        "target_size": args.target_size,
+        "training_samples": args.training_samples,
+        "class_balance": args.classbalance,
+        "images_location": args.images,
+        "descriptions_location": args.descriptions, 
+        "unknown_images_location": args.unknown_images,
+        "unknown_train": args.unknown_train,
+        "data_augmentation_group": args.dggroup
+    }
     
+    with open(os.path.join(args.output, "metadata.json"), "w") as meta_file:
+        json.dump(metadata, meta_file, indent=4)
