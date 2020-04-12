@@ -174,9 +174,9 @@ def standardize(
 
 
 def load_image(filename, target_size=None, center_crop=True):
-    assert target_size[0] == target_size[1]
 
     def _resize(img, target_size):
+        assert target_size[0] == target_size[1]
         return img.resize(target_size, PIL.Image.NEAREST)
 
     img = PIL.Image.open(filename).convert('RGB')
@@ -220,11 +220,10 @@ def sample(df_ground_truth, images_path, count_per_category, dg_group, img_size=
         if(count_per_category[i] > category_samples.shape[0]):
             # oversample
             print(f'Augmenting {category_samples.shape[0]} samples from class {i} into approximately {count_per_category[i]} samples...')
-            aug_pipeline = get_augmentation_group(dg_group, img_size)
-            aug_pipeline.status()
+            data_augmentations = get_augmentation_group(dg_group, img_size)
             samples = augment(
                 category_samples, 
-                aug_pipeline, 
+                data_augmentations, 
                 count_per_category[i], 
                 img_size
             )
