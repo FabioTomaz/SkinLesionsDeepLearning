@@ -1,15 +1,17 @@
 import math
 import os
+import tempfile
 import pandas as pd
 import numpy as np
-from Augmentor import Pipeline
-from Augmentor.Operations import CropPercentage
+from data.augmentations import CustomPipeline, get_augmentation_group
 from image_iterator import ImageIterator
-from keras_numpy_backend import softmax
 import tensorflow.keras.backend as K
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ModelCheckpoint, CSVLogger, TensorBoard
-from tensorflow.keras.models import Model
+from tensorflow.keras.models import Model, model_from_json
+from tensorflow.keras.regularizers import l2
+from keras_numpy_backend import softmax
+
 import random
 import datetime
 
@@ -20,14 +22,6 @@ config = ConfigProto()
 config.gpu_options.allow_growth = True
 session = InteractiveSession(config=config)
 
-class CustomPipeline(Pipeline):
-    def perform_operations(self, image):
-        augmented_image = image
-        for operation in self.operations:
-            r = round(random.uniform(0, 1), 1)
-            if r <= operation.probability:
-                augmented_image = operation.perform_operation([augmented_image])[0]
-        return augmented_image
 
 class LesionClassifier():
     """Base class of skin lesion classifier.
@@ -42,14 +36,15 @@ class LesionClassifier():
         image_data_format=None, 
         batch_size=32, 
         max_queue_size=10, 
-        rescale=None, 
+        rescale=True, 
         preprocessing_func=None, 
         class_weight=None,
         num_classes=None, 
         image_paths_train=None, 
         categories_train=None, 
         image_paths_val=None, 
-        categories_val=None
+        categories_val=None,
+        online_data_augmentation_group=1
     ):
 
         self.history_folder = 'history'
@@ -61,7 +56,6 @@ class LesionClassifier():
             self.image_data_format = image_data_format
         self.batch_size = batch_size
         self.max_queue_size = max_queue_size
-        self.rescale = rescale
         self.preprocessing_func = preprocessing_func
         self.class_weight = class_weight
         self.num_classes = num_classes
@@ -69,57 +63,71 @@ class LesionClassifier():
         self.categories_train = categories_train
         self.image_paths_val = image_paths_val
         self.categories_val = categories_val
+        self.online_data_augmentation_group = online_data_augmentation_group
         
         self.log_date = datetime.datetime.now().isoformat()
 
-        self.aug_pipeline_train = LesionClassifier.create_aug_pipeline_train(self.input_size)
+        self.aug_pipeline_train = LesionClassifier.create_aug_pipeline(
+            self.online_data_augmentation_group,
+            self.input_size,
+            rescale
+        )
+
         print('Image Augmentation Pipeline for Training Set')
         self.aug_pipeline_train.status()
 
-        self.aug_pipeline_val = LesionClassifier.create_aug_pipeline_val(self.input_size)
+        self.aug_pipeline_val = LesionClassifier.create_aug_pipeline(
+            0,
+            self.input_size,
+            rescale
+        )
         print('Image Augmentation Pipeline for Validation Set')
         self.aug_pipeline_val.status()
 
         self.generator_train, self.generator_val = self._create_image_generator()
 
+
+    def add_regularization(self, model, regularizer=0.0001):
+        regularizer = l2(regularizer)
+        for layer in model.layers:
+            for attr in ['kernel_regularizer']:
+                if hasattr(layer, attr):
+                    print("L2 >> " + str(getattr(layer, attr)))
+                    setattr(layer, attr, regularizer)
+
+        # When we change the layers attributes, the change only happens in the model config file
+        model_json = model.to_json()
+
+        # Save the weights before reloading the model.
+        tmp_weights_path = os.path.join(tempfile.gettempdir(), 'tmp_weights.h5')
+        model.save_weights(tmp_weights_path)
+
+        # load the model from the config
+        model = model_from_json(model_json)
+        
+        # Reload the model weights
+        model.load_weights(tmp_weights_path, by_name=True)
+        return model
+
+
     @staticmethod
-    def create_aug_pipeline_train(input_size):
+    def create_aug_pipeline(data_aug_group, input_size, rescale):
         """Image Augmentation Pipeline for Training Set."""
 
-        p_train = CustomPipeline()
-        # Random crop
-        p_train.add_operation(CropPercentage(
-            probability=0.5, 
-            percentage_area=0.85, 
-            centre=False,
-            randomise_percentage_area=True
-        ))
-        # Rotate the image by either 90, 180, or 270 degrees randomly
-        p_train.rotate_random_90(probability=0.5)
-        # Flip the image along its vertical axis
-        p_train.flip_top_bottom(probability=0.5)
-        # Flip the image along its horizontal axis
-        p_train.flip_left_right(probability=0.5)
-        # Shear image
-        p_train.shear(probability=0.5, max_shear_left=20, max_shear_right=20)
-        # Random change brightness of the image
-        p_train.random_brightness(probability=0.5, min_factor=0.9, max_factor=1.1)
-        # Random change saturation of the image
-        p_train.random_color(probability=0.5, min_factor=0.9, max_factor=1.1)
-        # Resize the image to the desired input size of the model
-        p_train.resize(probability=1, width=input_size[0], height=input_size[1])
+        pipeline = CustomPipeline()
 
-        return p_train
+        data_aug_list = get_augmentation_group(
+            data_aug_group, 
+            input_size, 
+            center=True, 
+            resize=rescale
+        )
 
-    @staticmethod
-    def create_aug_pipeline_val(input_size):
-        """Image Augmentation Pipeline for Validation/Test Set."""
-        p_val = CustomPipeline()
-        # # Center Crop
-        # p_val.crop_centre(probability=1, percentage_area=0.9)
-        # Resize the image to the desired input size of the model
-        p_val.resize(probability=1, width=input_size[0], height=input_size[1])
-        return p_val
+        for aug in data_aug_list:
+            pipeline.add_operation(aug)
+
+        return pipeline
+
 
     @staticmethod
     def predict_dataframe(
@@ -132,11 +140,8 @@ class LesionClassifier():
         augmentation_pipeline=None, 
         preprocessing_function=None,
         batch_size=32, 
-        workers=1, 
-        unknown_category=None,
-        unknown_thresholds=[]
+        workers=1
     ):
-        unknown_thresholds = [1.0] + unknown_thresholds
         
         generator = ImageIterator(
             image_paths=df[x_col].tolist(),
@@ -152,46 +157,26 @@ class LesionClassifier():
 
         # Predict
         # https://keras.io/getting-started/faq/#how-can-i-obtain-the-output-of-an-intermediate-layer
-        intermediate_layer_model = Model(inputs=model.input,
-                                         outputs=model.get_layer('dense_pred').output)
+        intermediate_layer_model = Model(
+            inputs=model.input,
+            outputs=model.get_layer('dense_pred').output
+        )
         logits = intermediate_layer_model.predict_generator(
             generator, 
             verbose=1, 
             workers=workers
         )
 
-        df_softmax_dict = {}
+        softmax_probs = softmax(logits).astype(float) # explicitly convert softmax values to floating point because 0 and 1 are invalid, but 0.0 and 1.0 are valid
 
-        # convert softmax values to floating point to become valid
-        original_softmax_probs = softmax(logits).astype(float) 
-        
-        # Apply softmax threshold to determine unknown class
-        for unknown_thresh in unknown_thresholds:
-            softmax_probs = original_softmax_probs.copy()
+        # softmax probabilities
+        df_softmax = pd.DataFrame(softmax_probs, columns=category_names)
+        if y_col in df.columns:
+            df_softmax[y_col] = df[y_col].to_numpy()
+        df_softmax['pred_'+y_col] = np.argmax(softmax_probs, axis=1)
+        df_softmax.insert(0, id_col, df[id_col].to_numpy())
 
-            if unknown_thresh != 1.0:
-                unknown_softmax_values = np.zeros((len(softmax_probs),1))
-                for i in range(len(softmax_probs)):
-                    if max(softmax_probs[i]) < unknown_thresh:
-                        for j in range(len(softmax_probs[i])):
-                            softmax_probs[i][j] = 0.0
-                        unknown_softmax_values[i] =  1.0
-                softmax_probs = np.append(softmax_probs, unknown_softmax_values, axis=1)
-
-            # softmax probabilities
-            df_softmax = pd.DataFrame(
-                softmax_probs, 
-                columns=category_names + [unknown_category] if unknown_thresh != 1.0 else category_names
-            )
-            if y_col in df.columns:
-                df_softmax[y_col] = df[y_col].to_numpy()
-            
-            df_softmax['pred_'+y_col] = np.argmax(softmax_probs, axis=1)
-            df_softmax.insert(0, id_col, df[id_col].to_numpy())
-
-            df_softmax_dict[unknown_thresh] = df_softmax
-
-        return df_softmax_dict
+        return df_softmax
 
     def _create_image_generator(self):
         ### Training Image Generator
@@ -201,7 +186,7 @@ class LesionClassifier():
             augmentation_pipeline=self.aug_pipeline_train,
             batch_size=self.batch_size,
             shuffle=True,
-            rescale=self.rescale,
+            rescale=None,
             preprocessing_function=self.preprocessing_func,
             pregen_augmented_images=False,
             data_format=self.image_data_format
@@ -214,7 +199,7 @@ class LesionClassifier():
             augmentation_pipeline=self.aug_pipeline_val,
             batch_size=self.batch_size,
             shuffle=True,
-            rescale=self.rescale,
+            rescale=None,
             preprocessing_function=self.preprocessing_func,
             pregen_augmented_images=True, # Since there is no randomness in the augmentation pipeline.
             data_format=self.image_data_format

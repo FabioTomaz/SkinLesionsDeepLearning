@@ -4,7 +4,8 @@ from matplotlib.ticker import StrMethodFormatter
 import pandas as pd
 import numpy as np
 from sklearn.metrics import confusion_matrix
-from helpers import filter_models_info, get_log_metric
+from helpers import filter_models_info, get_log_metric, get_test_metric
+from sklearn.metrics import accuracy_score, balanced_accuracy_score, recall_score
 
 
 def plot_complexity_graph(
@@ -347,31 +348,63 @@ def plot_hyperparameter_over_epochs(
 
 def plot_model_comparisson(
     models_info,
+    df_ground_truth,
     metrics, 
     metric_labels,
+    models=[],
     constant_parameters={},
     title="", 
     figsize=(10, 5), 
     y_min=0,
     y_max=100,
+    parameter=None,
+    parameter_filter=None,
+    xticklabelfunction=None
 ):
     # Use some kind of benchmark hyperparameters in order to compare the models
-    models_info_list = filter_models_info(models_info, parameters=constant_parameters)
+    if parameter_filter == None:
+        models_info_list = filter_models_info(
+            models_info, 
+            models=models,
+            parameters=constant_parameters
+        )
+    else:
+        models_info_list = []
+        for i in parameter_filter:
+            constant_parameters[parameter] = i
+            models_info_list = models_info_list + filter_models_info(
+                models_info, 
+                models=models,
+                parameters=constant_parameters
+            )
 
     xticklabels = []
     scalars0 = []
     scalars1 = []
     for model_info in models_info_list:
-        if model_info["pred_val"] is not None:
-            # # read true a prediction categories from validation dataset
-            # df = pd.read_csv(os.path.join(model_info["pred_val"], "no_unknown", "best_balanced_acc.csv"))
-            # y_true = df['category']
-            # y_pred = df['pred_category']
+        if model_info["pred_test"] is not None:
+            # read true a prediction categories from validation dataset
+            df = pd.merge(
+                pd.read_csv(os.path.join(model_info["pred_test"], "no_unknown", "best_balanced_acc.csv")),
+                df_ground_truth, 
+                on='image'
+            )
+            y_true = df['category']
+            y_pred = df['pred_category']
+                
 
             # compute metric and associate it with model
-            xticklabels.append(model_info["model"])
-            scalars0.append(round(get_log_metric(model_info["log"], metric=metrics[0])*100,2))
-            scalars1.append(round(get_log_metric(model_info["log"], metric=metrics[1])*100,2))
+            if parameter is None:
+                label = str(model_info["model"])
+            else: 
+                label = str(model_info["hyperparameters"][parameter])
+
+            if xticklabelfunction is not None:
+                label = xticklabelfunction(label)
+            xticklabels.append(label)
+
+            scalars0.append(round(metrics[0](y_true, y_pred)*100,2))
+            scalars1.append(round(metrics[1](y_true, y_pred)*100,2))
 
     scalars0, scalars1, xticklabels = zip(*sorted(zip(scalars0, scalars1, xticklabels)))
         
@@ -398,55 +431,77 @@ def plot_model_comparisson(
     
     return fig
 
-# def plot_model_parameter_comparisson(
-#     models_infos,
-#     models_parameters,
-#     parameter_label="", 
-#     metric_label="",
-#     title="", 
-#     figsize=(20, 10),
-#     rows=2,
-#     cols=3
-# ): 
-#     fig, axes = plt.subplots(rows, cols, figsize=figsize)
-#     print(axes)
 
-#     for i, model_parameters in enumerate(models_parameters):
-#         row=i%rows
-#         col=i%cols
+def plot_model_comparisson_balanced_acc(
+    models_info,
+    df_ground_truth,
+    constant_parameters={},
+    models=None,
+    title="", 
+    figsize=(10, 5), 
+    y_min=0,
+    y_max=100,
+    parameter=None,
+    xticklabelfunction=None
+):
+    # Use some kind of benchmark hyperparameters in order to compare the models
+    models_info_list = filter_models_info(
+        models_info, 
+        models=models,
+        parameters=constant_parameters
+    )
 
-#         models_info = filter_models_info(
-#             models_infos,
-#             models = [key for key, value in model_parameters.items()]
-#         )
+    xticklabels = []
+    scalars0 = []
+    scalars1 = []
+    scalars2 = []
+    for model_info in models_info_list:
+        if model_info["pred_test"] is not None:
+            # read true a prediction categories from validation dataset
+            df_pred = pd.read_csv(os.path.join(model_info["pred_test"], "no_unknown", "best_balanced_acc.csv"))
 
-#         parameter = []
-#         scalars_train = []
-#         scalars_val = []
-#         labels = []
-#         for model_info in models_info:
-#             # compute metric and associate it with model
-#             parameter.append(model_parameters[model_info["model"]])
-#             scalars_train.append(round(get_log_metric(model_info["log"], metric="balanced_accuracy")*100,2))
-#             scalars_val.append(round(get_log_metric(model_info["log"])*100,2))
-#             labels.append(model_info["model"])
-                
-#         parameter, scalars_val, scalars_train, labels = zip(*sorted(zip(parameter, scalars_val, scalars_train, labels)))
+            # compute metric and associate it with model
+            if parameter is None:
+                label = str(model_info["model"])
+            else: 
+                label = str(model_info["hyperparameters"][parameter])
 
-#         axes[row+col].plot(parameter, scalars_train, '.b-', label="Train")
-#         axes[row+col].plot(parameter, scalars_val, '.r-', label="Validation")
-#         axes[row+col].set_title(title)
-#         axes[row+col].set(xlabel=parameter_label, ylabel=metric_label)
+            if xticklabelfunction is not None:
+                label = xticklabelfunction(label)
+            xticklabels.append(label)
 
-#         axes[row+col].legend()
-#         axes[row+col].grid(True)
+            scalars0.append(round(get_log_metric(model_info["log"], metric="balanced_accuracy")*100,2))
+            scalars1.append(round(get_log_metric(model_info["log"])*100,2))
+            scalars2.append(round(get_test_metric(df_pred, df_ground_truth, balanced_accuracy_score)*100,2))
 
-#         for i in range(len(labels)):
-#             axes[row+col].annotate(labels[i], (parameter[i]+2, scalars_val[i]))
-#             axes[row+col].annotate(labels[i], (parameter[i]+2, scalars_train[i]))
+    scalars2, scalars1, scalars0, xticklabels = zip(*sorted(zip(scalars2, scalars1, scalars0, xticklabels)))
+        
+    x = np.arange(len(xticklabels))  # the label locations
+    width = 0.30  # the width of the bars
 
-#     fig.tight_layout()
-#     return fig
+    # Create grouped bar chart
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.set_title(title)
+    fig.patch.set_facecolor('white')
+
+    rects0 = ax.bar(x - width, scalars0, width, label="Train")
+    rects1 = ax.bar(x, scalars1, width, label="Validation")
+    rects2 = ax.bar(x + width, scalars2, width, label="Test")
+
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    ax.set_xticks(x)
+    ax.set_xticklabels(xticklabels)
+    ax.set(xlabel="Model", ylabel="Metric Score (%)")
+    ax.set_ylim(bottom =y_min, top=y_max)
+    ax.legend()
+    autolabel(ax, rects0)
+    autolabel(ax, rects1)
+    autolabel(ax, rects2)
+    fig.tight_layout()
+    
+    return fig
+
+
 
 def plot_model_parameter_comparisson(
     models_info,
@@ -496,37 +551,67 @@ def plot_hyperparameter_comparisson(
     hyperparameter,
     val_metric="val_balanced_accuracy",
     train_metric="balanced_accuracy",
+    test_metric=None,
     parameter_label="", 
     metric_label="Balanced Accuracy(%)",
     title="", 
     figsize=(7, 5),
-    x_scale="linear"
+    x_scale="linear",
+    df_ground_truth=None,
+    bar_plot=False,
+    xticklabelfunction=lambda parameter_list: parameter_list
 ): 
     parameter = []
     scalars_train = []
     scalars_val = []
+    scalars_test = []
     for model_info in models_info:
         param = 0.0 if model_info["hyperparameters"][hyperparameter]=="None" else float(model_info["hyperparameters"][hyperparameter]) 
         # compute metric and associate it with model
         parameter.append(param)
+            
         scalars_train.append(round(get_log_metric(model_info["log"], metric=train_metric)*100,2))
         scalars_val.append(round(get_log_metric(model_info["log"], metric=val_metric)*100,2))
+        if df_ground_truth is not None and test_metric is not None:
+            # read true a prediction categories from validation dataset
+            df_pred = pd.read_csv(os.path.join(model_info["pred_test"], "no_unknown", "best_balanced_acc.csv"))
+            scalars_test.append(round(get_test_metric(df_pred, df_ground_truth, test_metric)*100,2))   
+        else:
+            scalars_test.append(0)
         
     fig, ax = plt.subplots(figsize=figsize)
 
-    parameter, scalars_val, scalars_train = zip(*sorted(zip(parameter, scalars_val, scalars_train)))
+    parameter, scalars_val, scalars_train, scalars_test = zip(*sorted(zip(parameter, scalars_val, scalars_train, scalars_test)))
+    parameter=xticklabelfunction(parameter)
 
-    ax.plot(parameter, scalars_train, '.b-', label="Train")
-    ax.plot(parameter, scalars_val, '.r-', label="Validation")
+    if bar_plot is True:
+        width = 0.35  # the width of the bars
+        x = np.arange(len(parameter))  # the label locations
+        rects0 = ax.bar(x - width, scalars_train, width, label="Train")
+        autolabel(ax, rects0)
+        rects1 = ax.bar(x, scalars_val, width, label="Validation")
+        autolabel(ax, rects1)
+        if df_ground_truth is not None and test_metric is not None:
+            rects2 = ax.bar(x + width, scalars_test, width, label="Test")
+            autolabel(ax, rects2)
+
+        # Add some text for labels, title and custom x-axis tick labels, etc.
+        ax.set_xticks(x)
+        ax.set_xticklabels(parameter)
+    else:
+        ax.plot(parameter, scalars_train, '.b-', label="Train")
+        ax.plot(parameter, scalars_val, '.r-', label="Validation")
+        if df_ground_truth is not None and test_metric is not None:
+            ax.plot(parameter, scalars_test, '.g-', label="Test")
+        ax.set_xscale(x_scale)
+        ax.grid(True)
+        ax.set_yscale("linear")
+    
     ax.set_title(title)
     ax.set(xlabel=parameter_label, ylabel=metric_label)
-
     ax.legend()
-    ax.grid(True)
-
-    ax.set_xscale(x_scale)
-    ax.set_yscale("linear")
-
     fig.tight_layout()
 
     return fig
+
+    

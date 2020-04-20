@@ -4,28 +4,8 @@ currentdir = os.path.dirname(os.path.abspath(inspect.getfile(inspect.currentfram
 parentdir = os.path.dirname(currentdir)
 sys.path.insert(0,parentdir) 
 from utils import get_hyperparameters_from_str 
-from data.data import load_isic_training_data
+from data.data_loader import load_isic_training_data
 from collections import Counter
-
-
-def get_models_info(history_folder, model_name):
-    d=os.path.join("..", history_folder, model_name)
-    hyperparameter_combinations = [o for o in os.listdir(d) if os.path.isdir(os.path.join(d,o))]
-    models_info = []
-
-    for _, combination in enumerate(hyperparameter_combinations): 
-        hyperparameters = get_hyperparameters_from_str(combination)
-        file_path = os.path.join("..", history_folder, model_name, combination, "training.csv")
-        if(len(hyperparameters)>1 and os.path.exists(file_path)):
-            model_info = {
-                "log": file_path,
-                "hyperparameters": hyperparameters, 
-                "hyperparameters_dir": combination
-            } 
-            models_info.append(model_info)
-    
-    return models_info
-
 
 
 def read_models_info(history_folder_name, pred_val_folder_name, pred_test_folder_name):
@@ -42,7 +22,7 @@ def read_models_info(history_folder_name, pred_val_folder_name, pred_test_folder
 
         for i, combination in enumerate(hyperparameter_combinations): 
             hyperparameters = get_hyperparameters_from_str(combination)
-            file_path = os.path.join(history_folder, model_name, combination, "training.csv")
+            file_path = os.path.join(history_folder, model_name, combination, "0", "training.csv")
             pred_val_path = os.path.join(pred_val_folder, model_name, combination)
             pred_test_path = os.path.join(pred_test_folder, model_name, combination)
 
@@ -67,16 +47,48 @@ def filter_models_info(models_info, models=None, parameters=None):
             add=False  
         if parameters is not None:
             for key, value in parameters.items():
-                if value is None or model_info["hyperparameters"][key] == "None":
+                parameter_filter = model_info["hyperparameters"][key]
+                if value is None or parameter_filter == "None":
                     if str(value) != model_info["hyperparameters"][key]:
                         add=False
                         break
-                elif float(model_info["hyperparameters"][key]) != float(value):
+                elif isinstance(parameter_filter, list) and float(value) not in [float(i) for i in parameter_filter]:
+                    add=False
+                    break
+                elif float(parameter_filter) != float(value):
                     add=False
                     break
         if add is True:
             models_info_list.append(model_info)
     return models_info_list
+
+
+def read_ensembles(
+    pred_test_folder_name,
+    contains_models=None
+):
+    models_info = []
+
+    pred_test_folder=os.path.join("..", pred_test_folder_name)
+
+    model_names = [o for o in os.listdir(pred_test_folder) if os.path.isdir(os.path.join(pred_test_folder,o))]
+    for model_name in model_names:
+        hyperparameter_combinations = [o for o in os.listdir(log_dir) if os.path.isdir(os.path.join(log_dir,o))]
+
+        for i, combination in enumerate(hyperparameter_combinations): 
+            hyperparameters = get_hyperparameters_from_str(combination)
+            file_path = os.path.join(history_folder, model_name, combination, "0", "training.csv")
+            pred_val_path = os.path.join(pred_val_folder, model_name, combination)
+            pred_test_path = os.path.join(pred_test_folder, model_name, combination)
+
+            if len(hyperparameters)>1 and os.path.exists(file_path):
+                model_info = {
+                    "models": model_name,
+                    "pred_test": pred_test_path if os.path.exists(pred_test_path) else None
+                }
+                models_info.append(model_info)
+    
+    return models_info
 
 
 def get_count_per_category(data_folder, test=False):
@@ -94,6 +106,14 @@ def get_count_per_category(data_folder, test=False):
 
     return all_category_names, count_per_category, df_test_ground_truth
 
+
 def get_log_metric(log_file, metric="val_balanced_accuracy", criteria="val_balanced_accuracy"):
     df = pd.read_csv(log_file)
     return df.iloc[df[criteria].idxmax()][metric]
+
+
+def get_test_metric(df_pred, df_truth, metric_func):
+    df = pd.merge(df_pred, df_truth, on='image')
+    y_true = df['category']
+    y_pred = df['pred_category']
+    return metric_func(y_true, y_pred)

@@ -5,6 +5,71 @@ import pandas as pd
 import os
 import subprocess as sp
 import cv2
+from keras_numpy_backend import softmax
+
+
+def logistic(x, x0=0, L=1, k=1):
+    """ Calculate the value of a logistic function.
+
+    # Arguments
+        x0: The x-value of the sigmoid's midpoint.
+        L: The curve's maximum value.
+        k: The logistic growth rate or steepness of the curve.
+    # References https://en.wikipedia.org/wiki/Logistic_function
+    """
+
+    return L / (1 + np.exp(-k*(x-x0)))
+
+
+def formated_hyperparameter_str(
+    feepochs,
+    ftepochs,
+    felr,
+    ftlr,
+    lmda,
+    dropout,
+    batch_size,
+    samples,
+    balanced,
+    offline_data_augmentation_group=1,
+    online_data_augmentation_group=1
+):
+    felr_str = format(felr, 'f')
+    ftlr_str = format(ftlr, 'f')
+    dropout_str = "None" if dropout == None else format(dropout, 'f')
+    l2_str = "None" if lmda == None else format(lmda, 'f')
+    balanced_int = 1 if balanced is True else 0
+    data_augmentation_group = str(offline_data_augmentation_group) + str(online_data_augmentation_group)
+    return f'balanced_{balanced_int}-samples_{samples}-feepochs_{feepochs}-ftepochs_{ftepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}-dggroup_{data_augmentation_group}'
+
+
+def get_hyperparameters_from_str(hyperparameter_str):
+    hyperparameter_combination = hyperparameter_str.split("-")
+    hyperparameters = {}
+    for hyperparameter in hyperparameter_combination:
+        split=hyperparameter.split("_")
+        if(len(split)==2):
+            hyperparameters[split[0]] = split[1]
+    return hyperparameters
+
+
+def get_gpu_index():
+    """ Returns available gpu index or None if none is available
+    """
+    _output_to_list = lambda x: x.decode('ascii').split('\n')[:-1]
+
+    COMMAND = "nvidia-smi --query-gpu=memory.total,memory.used --format=csv"
+    gpu_info = _output_to_list(sp.check_output(COMMAND.split()))[1:]
+
+    memory_used_percent = []
+    for i in gpu_info:
+        memory_total = float(i.split(",")[0].split()[0])
+        memory_used = float(i.split(",")[1].split()[0])
+        memory_used_percent.append(float(memory_used)/float(memory_total)*100)
+
+    memory_min_val = min(memory_used_percent)
+    return memory_used_percent.index(memory_min_val) if memory_min_val < 10 else None
+
 
 def path_to_tensor(img_path, size=(224, 224)):
     # loads RGB image as PIL.Image.Image type
@@ -14,9 +79,11 @@ def path_to_tensor(img_path, size=(224, 224)):
     # convert 3D tensor to 4D tensor with shape (1, 224, 224, 3) and return 4D tensor
     return np.expand_dims(x, axis=0)
 
+
 def paths_to_tensor(img_paths, size=(224, 224)):
     list_of_tensors = [path_to_tensor(img_path, size) for img_path in img_paths]
     return np.vstack(list_of_tensors)
+
 
 def calculate_mean_std(img_paths):
     """
@@ -47,6 +114,7 @@ def calculate_mean_std(img_paths):
     rgb_std = list(bgr_std)[::-1]
     
     return rgb_mean, rgb_std
+
 
 def preprocess_input(x, data_format=None, **kwargs):
     """Preprocesses a numpy array encoding a batch of images. Each image is normalized by subtracting the mean and dividing by the standard deviation channel-wise.
@@ -108,171 +176,129 @@ def preprocess_input(x, data_format=None, **kwargs):
             x[..., 2] /= std[2]
     return x
 
-def preprocess_input_2(x, data_format=None, **kwargs):
-    """Preprocesses a numpy array encoding a batch of images. Each image is normalized by subtracting the mean and dividing by the standard deviation channel-wise.
-    This function only implements the 'torch' mode which scale pixels between 0 and 1 and then will normalize each channel with respect to the training dataset of approach 2 (not include validation set).
 
-    # Arguments
-        x: a 3D or 4D numpy array consists of RGB values within [0, 255].
-        data_format: data format of the image tensor.
-    # Returns
-        Preprocessed array.
-    # References
-        https://github.com/keras-team/keras-applications/blob/master/keras_applications/imagenet_utils.py
-    """
-    if not issubclass(x.dtype.type, np.floating):
-        x = x.astype(K.floatx(), copy=False)
+def apply_unknown_threshold(
+    df,
+    logits,
+    category_names,
+    id_col,
+    y_col,
+    unknown_thresholds,
+    unknown_category
+):
+    df_softmax_dict = {}
 
-    # Mean and STD calculated over the training set of approach 2
-    # Mean:[0.6296238064420809, 0.5202302775509949, 0.5032952297664738]
-    # STD:[0.24130893564897463, 0.22150225707876617, 0.2297057828857888]
-    x /= 255.
-    mean = [0.6296, 0.5202, 0.5033]
-    std = [0.2413, 0.2215, 0.2297]
+    # convert softmax values to floating point to become valid
+    original_softmax_probs = softmax(logits).astype(float) 
+    
+    # Apply softmax threshold to determine unknown class
+    for unknown_thresh in unknown_thresholds:
+        softmax_probs = original_softmax_probs.copy()
 
-    if data_format is None:
-        data_format = K.image_data_format()
+        if unknown_thresh != 1.0:
+            unknown_softmax_values = np.zeros((len(softmax_probs),1))
+            for i in range(len(softmax_probs)):
+                if max(softmax_probs[i]) < unknown_thresh:
+                    for j in range(len(softmax_probs[i])):
+                        softmax_probs[i][j] = 0.0
+                    unknown_softmax_values[i] =  1.0
+            softmax_probs = np.append(softmax_probs, unknown_softmax_values, axis=1)
 
-    # Zero-center by mean pixel
-    if data_format == 'channels_first':
-        if x.ndim == 3:
-            x[0, :, :] -= mean[0]
-            x[1, :, :] -= mean[1]
-            x[2, :, :] -= mean[2]
-            if std is not None:
-                x[0, :, :] /= std[0]
-                x[1, :, :] /= std[1]
-                x[2, :, :] /= std[2]
-        else:
-            x[:, 0, :, :] -= mean[0]
-            x[:, 1, :, :] -= mean[1]
-            x[:, 2, :, :] -= mean[2]
-            if std is not None:
-                x[:, 0, :, :] /= std[0]
-                x[:, 1, :, :] /= std[1]
-                x[:, 2, :, :] /= std[2]
-    else:
-        x[..., 0] -= mean[0]
-        x[..., 1] -= mean[1]
-        x[..., 2] -= mean[2]
-        if std is not None:
-            x[..., 0] /= std[0]
-            x[..., 1] /= std[1]
-            x[..., 2] /= std[2]
-    return x
+        # softmax probabilities
+        df_softmax = pd.DataFrame(
+            softmax_probs, 
+            columns=category_names + [unknown_category] if unknown_thresh != 1.0 else category_names
+        )
+        if y_col in df.columns:
+            df_softmax[y_col] = df[y_col].to_numpy()
+        
+        df_softmax['pred_'+y_col] = np.argmax(softmax_probs, axis=1)
+        df_softmax.insert(0, id_col, df[id_col].to_numpy())
+
+        df_softmax_dict[unknown_thresh] = df_softmax
+
+    return df_softmax_dict
+
+
+def save_prediction_results(
+    df_softmax,
+    prediction_label,
+    pred_result_folder_test,
+    model_name,
+    postfix,
+    hyperparameter_str=""
+):
+    # Save results (multiple thresholds and no threhold)
+    pred_folder = os.path.join(
+        pred_result_folder_test, 
+        model_name,
+        hyperparameter_str,
+        prediction_label,
+    )
+    if not os.path.exists(pred_folder):
+        os.makedirs(pred_folder)
+
+    df_softmax.to_csv(path_or_buf=os.path.join(pred_folder, f"{postfix}.csv"), index=False)
+    df_softmax_no_pred_col = df_softmax.copy()
+    del df_softmax_no_pred_col['pred_category']
+    df_softmax_no_pred_col.to_csv(path_or_buf=os.path.join(pred_folder, f"{postfix}_no_pred_category.csv"), index=False)
+
 
 def ensemble_predictions(
     result_folder, 
     hyperparameter_str,
     category_names, 
     save_file=True,
-    model_names=['DenseNet201', 'Xception'],
-    postfixes=['best_balanced_acc', 'best_loss', 'latest']
+    model_names=['DenseNet201', 'ResNet152', 'EfficientNetB2'],
+    postfix='best_balanced_acc'
 ):
     """ Ensemble predictions of different models. """
-    for postfix in postfixes:
-        # Load models' predictions
-        df_dict = {
-            model_name : pd.read_csv(
-                os.path.join(
-                    result_folder, 
-                    model_name, 
-                    hyperparameter_str, 
-                    f"{postfix}.csv"
-                )
-            ) for i, model_name in enumerate(model_names)
-        }
-
-        # Check row number
-        for i in range(1, len(model_names)):
-            if len(df_dict[model_names[0]]) != len(df_dict[model_names[i]]):
-                raise ValueError(
-                    f"Row numbers are inconsistent between {model_names[0]} and {model_names[i]}"
-                )
-
-        # Check whether values of image column are consistent
-        for i in range(1, len(model_names)):
-            inconsistent_idx = np.where(df_dict[model_names[0]].image != df_dict[model_names[i]].image)[0]
-            if len(inconsistent_idx) > 0:
-                raise ValueError(
-                    "{} values of image column are inconsistent between {} and {}".format(
-                        len(inconsistent_idx), 
-                        model_names[0], 
-                        model_names[i]
-                    )
-                )
-
-        # Copy the first model's predictions
-        df_ensemble = df_dict[model_names[0]].drop(columns=['pred_category'])
-
-        # Add up predictions
-        for category_name in category_names:
-            for i in range(1, len(model_names)):
-                df_ensemble[category_name] = df_ensemble[category_name] + df_dict[model_names[i]][category_name]
-
-        # Take average of predictions
-        for category_name in category_names:
-            df_ensemble[category_name] = df_ensemble[category_name] / len(model_names)
-
-        # Ensemble Predictions
-        df_ensemble['pred_category'] = np.argmax(np.array(df_ensemble.iloc[:,1:(1+len(category_names))]), axis=1)
-
-        # Save Ensemble Predictions
-        if save_file:
-            ensemble_file = os.path.join(
+    # Load models' predictions
+    df_dict = {
+        model_name : pd.read_csv(
+            os.path.join(
                 result_folder, 
-                f"Ensemble_{postfix}.csv"
+                model_name, 
+                hyperparameter_str, 
+                "no_unknown",
+                f"{postfix}.csv"
             )
-            df_ensemble.to_csv(path_or_buf=ensemble_file, index=False)
-            print(f"Save '{ensemble_file}'")
+        ) for i, model_name in enumerate(model_names)
+    }
+
+    # Check row number
+    for i in range(1, len(model_names)):
+        if len(df_dict[model_names[0]]) != len(df_dict[model_names[i]]):
+            raise ValueError(
+                f"Row numbers are inconsistent between {model_names[0]} and {model_names[i]}"
+            )
+
+    # Check whether values of image column are consistent
+    for i in range(1, len(model_names)):
+        inconsistent_idx = np.where(df_dict[model_names[0]].image != df_dict[model_names[i]].image)[0]
+        if len(inconsistent_idx) > 0:
+            raise ValueError(
+                "{} values of image column are inconsistent between {} and {}".format(
+                    len(inconsistent_idx), 
+                    model_names[0], 
+                    model_names[i]
+                )
+            )
+
+    # Copy the first model's predictions
+    df_ensemble = df_dict[model_names[0]].drop(columns=['pred_category'])
+
+    # Add up predictions
+    for category_name in category_names:
+        for i in range(1, len(model_names)):
+            df_ensemble[category_name] = df_ensemble[category_name] + df_dict[model_names[i]][category_name]
+
+    # Take average of predictions
+    for category_name in category_names:
+        df_ensemble[category_name] = df_ensemble[category_name] / len(model_names)
+
+    # Ensemble Predictions
+    df_ensemble['pred_category'] = np.argmax(np.array(df_ensemble.iloc[:,1:(1+len(category_names))]), axis=1)
+
     return df_ensemble
 
-def logistic(x, x0=0, L=1, k=1):
-    """ Calculate the value of a logistic function.
-
-    # Arguments
-        x0: The x-value of the sigmoid's midpoint.
-        L: The curve's maximum value.
-        k: The logistic growth rate or steepness of the curve.
-    # References https://en.wikipedia.org/wiki/Logistic_function
-    """
-
-    return L / (1 + np.exp(-k*(x-x0)))
-
-def formated_hyperparameter_str(
-    feepochs,
-    ftepochs,
-    felr,
-    ftlr,
-    lmda,
-    dropout,
-    batch_size,
-    samples,
-    balanced
-):
-    felr_str = format(felr, 'f')
-    ftlr_str = format(ftlr, 'f')
-    dropout_str = "None" if dropout == None else format(dropout, 'f')
-    l2_str = "None" if lmda == None else format(lmda, 'f')
-    balanced_int = 1 if balanced is True else 0
-    return f'balanced_{balanced_int}-samples_{samples}-feepochs_{feepochs}-ftepochs_{ftepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}'
-
-def get_hyperparameters_from_str(hyperparameter_str):
-    hyperparameter_combination = hyperparameter_str.split("-")
-    hyperparameters = {}
-    for hyperparameter in hyperparameter_combination:
-        split=hyperparameter.split("_")
-        if(len(split)==2):
-            hyperparameters[split[0]] = split[1]
-    return hyperparameters
-
-def get_gpu_index():
-    """ Returns available gpu index or None if none is available
-    """
-    _output_to_list = lambda x: x.decode('ascii').split('\n')[:-1]
-
-    COMMAND = "nvidia-smi --query-gpu=utilization.memory --format=csv"
-    memory_free_info = _output_to_list(sp.check_output(COMMAND.split()))[1:]
-    memory_free_values = [int(x.split()[0]) for i, x in enumerate(memory_free_info)]
-    memory_min_val = min(memory_free_values)
-    return memory_free_values.index(memory_min_val) if memory_min_val < 10 else None

@@ -151,8 +151,10 @@ class ImageIterator(Iterator):
 
         for i in trange(len(self.image_paths), desc='Pre-generate augmented images'):
             img = Image.open(self.image_paths[i])
+            img2 = img.copy()
+            img.close()
             if self.augmentation_pipeline:
-                img = self.augmentation_pipeline.perform_operations(img)
-            augmented_images.append(img)
+                img2 = self.augmentation_pipeline.perform_operations(img2)
+            augmented_images.append(img2)
         
         return augmented_images

@@ -37,7 +37,10 @@ class TransferLearnClassifier(LesionClassifier):
         image_paths_train=None, 
         categories_train=None, 
         image_paths_val=None, 
-        categories_val=None
+        categories_val=None,
+        offline_data_augmentation_group=None,
+        online_data_augmentation_group=None,
+        rescale= True
     ):
 
         if num_classes is None:
@@ -48,7 +51,6 @@ class TransferLearnClassifier(LesionClassifier):
 
         self.feature_extract_epochs = feature_extract_epochs
         self.fine_tuning_epochs = fine_tuning_epochs
-        #self.mirrored_strategy = distribute.MirroredStrategy()
 
         # Learning rates
         self.start_lr = feature_extract_start_lr
@@ -57,6 +59,8 @@ class TransferLearnClassifier(LesionClassifier):
         # Regularization
         self.dropout = dropout
         self.l2 = l2
+
+        self.offline_data_augmentation_group = offline_data_augmentation_group
 
         if image_data_format is None:
             image_data_format = K.image_data_format()
@@ -93,6 +97,10 @@ class TransferLearnClassifier(LesionClassifier):
 
         # Create the model
         self._model = Model(inputs=self._base_model.input, outputs=predictions)
+
+        if self.l2 is not None:
+            self._model = self.add_regularization(self._model, self.l2)
+
         # Compile the model
         self._model.compile(
             optimizer=Adam(lr=self.start_lr), 
@@ -112,7 +120,9 @@ class TransferLearnClassifier(LesionClassifier):
             image_paths_train=image_paths_train, 
             categories_train=categories_train,
             image_paths_val=image_paths_val, 
-            categories_val=categories_val
+            categories_val=categories_val,
+            online_data_augmentation_group=online_data_augmentation_group,
+            rescale=rescale
         )
 
 
@@ -128,6 +138,8 @@ class TransferLearnClassifier(LesionClassifier):
                 self.batch_size,
                 len(self.image_paths_train) + len(self.image_paths_val),
                 all(round(value, 2) == 1 for value in self.class_weight.values()),
+                self.offline_data_augmentation_group,
+                self.online_data_augmentation_group
             ),
             str(k_split)
         )
