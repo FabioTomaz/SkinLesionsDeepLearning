@@ -133,8 +133,6 @@ def get_augmentation_group(data_aug_group, input_size, center=True, resize=True)
             Operations.Flip(probability=0.5, top_bottom_left_right="LEFT_RIGHT"),
             # Shear Image
             Operations.Shear(probability=0.5, max_shear_left=20, max_shear_right=20),
-            # Skew Image
-            Operations.Skew(probability=0.5, skew_type="TILT", magnitude=1),
             # Random distortions
             Operations.Distort(probability=0.5, grid_width=8, grid_height=8, magnitude=4),
             # Random erasing
