@@ -22,6 +22,7 @@ def read_models_info(history_folder_name, pred_test_folder_name):
         for i, combination in enumerate(hyperparameter_combinations): 
             hyperparameters = get_hyperparameters_from_str(combination)
             file_path = os.path.join(history_folder, model_name, combination, "0", "training.csv")
+            pred_test_path_0 = os.path.join(pred_test_folder, model_name, combination, "0")
             pred_test_path = os.path.join(pred_test_folder, model_name, combination)
 
             if len(hyperparameters)>1 and os.path.exists(file_path):
@@ -29,6 +30,7 @@ def read_models_info(history_folder_name, pred_test_folder_name):
                     "model": model_name,
                     "hyperparameters": hyperparameters, 
                     "log": file_path,
+                    "pred_test_0": pred_test_path_0 if os.path.exists(pred_test_path_0) else None,
                     "pred_test": pred_test_path if os.path.exists(pred_test_path) else None
                 }
                 models_info.append(model_info)
@@ -43,18 +45,26 @@ def filter_models_info(models_info, models=None, parameters=None):
         if models is not None and model_info["model"] not in models:
             add=False  
         if parameters is not None:
-            for key, value in parameters.items():
-                parameter_filter = model_info["hyperparameters"][key]
-                if value is None or parameter_filter == "None":
-                    if str(value) != model_info["hyperparameters"][key]:
-                        add=False
-                        break
-                elif isinstance(parameter_filter, list) and float(value) not in [float(i) for i in parameter_filter]:
-                    add=False
-                    break
-                elif float(parameter_filter) != float(value):
-                    add=False
-                    break
+            for key, parameter_filter in parameters.items():
+                if key in model_info["hyperparameters"]:
+                    model_parameter = model_info["hyperparameters"][key]
+                    if isinstance(parameter_filter, list):
+                        if float(model_parameter) not in [None if i == "None" else float(i) for i in parameter_filter]:
+                            add=False
+                            break
+                    elif parameter_filter is None or model_parameter == "None":
+                        if str(parameter_filter) != model_parameter:
+                            add=False
+                            break
+                    else:
+                        try:
+                            parameter_filter_float=float(parameter_filter)
+                            if float(model_parameter) != parameter_filter_float:
+                                add=False
+                                break
+                        except ValueError:
+                            continue
+
         if add is True:
             models_info_list.append(model_info)
     return models_info_list

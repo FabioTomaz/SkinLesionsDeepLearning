@@ -49,6 +49,7 @@ def get_hyperparameters_from_str(hyperparameter_str):
     for hyperparameter in hyperparameter_combination:
         split=hyperparameter.split("_")
         if(len(split)==2):
+            #split_val = "0.0" if split[1]=="None" else split[1]
             hyperparameters[split[0]] = split[1]
     return hyperparameters
 
@@ -116,7 +117,7 @@ def calculate_mean_std(img_paths):
     return rgb_mean, rgb_std
 
 
-def preprocess_input(x, data_format=None, **kwargs):
+def preprocess_input(x, data_format=None):
     """Preprocesses a numpy array encoding a batch of images. Each image is normalized by subtracting the mean and dividing by the standard deviation channel-wise.
     This function only implements the 'torch' mode which scale pixels between 0 and 1 and then will normalize each channel with respect to the training dataset of approach 1 (not include validation set).
 
@@ -222,11 +223,11 @@ def apply_unknown_threshold(
 
 def save_prediction_results(
     df_softmax,
-    prediction_label,
-    pred_result_folder_test,
     model_name,
-    postfix,
-    hyperparameter_str=""
+    pred_result_folder_test="test_predict_results",
+    hyperparameter_str="",
+    prediction_label="no_unknown",
+    postfix="best_balanced_acc"
 ):
     # Save results (multiple thresholds and no threhold)
     pred_folder = os.path.join(
@@ -244,11 +245,51 @@ def save_prediction_results(
     df_softmax_no_pred_col.to_csv(path_or_buf=os.path.join(pred_folder, f"{postfix}_no_pred_category.csv"), index=False)
 
 
+def ensemble_predictions_k_fold(
+    result_folder, 
+    hyperparameter_str,
+    category_names, 
+    model_name='DenseNet201',
+    postfix='best_balanced_acc',
+    k_folds=5
+):
+    """ Ensemble predictions of different models. """
+    # Load models' predictions
+    df_dict = {
+        fold : pd.read_csv(
+            os.path.join(
+                result_folder, 
+                model_name, 
+                hyperparameter_str, 
+                str(fold),
+                "no_unknown",
+                f"{postfix}.csv"
+            )
+        ) for fold in range(k_folds)
+    }
+
+    # Copy the first model's predictions
+    df_ensemble = df_dict[0].drop(columns=['pred_category'])
+
+    # Add up predictions
+    for category_name in category_names:
+        for i in range(k_folds):
+            df_ensemble[category_name] = df_ensemble[category_name] + df_dict[i][category_name]
+
+    # Take average of predictions
+    for category_name in category_names:
+        df_ensemble[category_name] = df_ensemble[category_name] / k_folds
+
+    # Ensemble Predictions
+    df_ensemble['pred_category'] = np.argmax(np.array(df_ensemble.iloc[:,1:(1+len(category_names))]), axis=1)
+
+    return df_ensemble
+
+
 def ensemble_predictions(
     result_folder, 
     hyperparameter_str,
     category_names, 
-    save_file=True,
     model_names=['DenseNet201', 'ResNet152', 'EfficientNetB2'],
     postfix='best_balanced_acc'
 ):

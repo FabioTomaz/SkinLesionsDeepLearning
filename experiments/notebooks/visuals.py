@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.metrics import confusion_matrix
 from helpers import filter_models_info, get_log_metric, get_test_metric
 from sklearn.metrics import accuracy_score, balanced_accuracy_score, recall_score
+from matplotlib.ticker import MaxNLocator
 
 
 def plot_complexity_graph(
@@ -343,6 +344,7 @@ def plot_hyperparameter_over_epochs(
     ax1.set_xscale("linear")
     ax1.set_yscale(y_scale)
 
+
     return fig
 
 
@@ -471,7 +473,7 @@ def plot_model_comparisson_balanced_acc(
             xticklabels.append(label)
 
             scalars0.append(round(get_log_metric(model_info["log"], metric="balanced_accuracy")*100,2))
-            scalars1.append(round(get_log_metric(model_info["log"])*100,2))
+            scalars1.append(round(get_log_metric(model_info["log"], metric="val_balanced_accuracy")*100,2))
             scalars2.append(round(get_test_metric(df_pred, df_ground_truth, balanced_accuracy_score)*100,2))
 
     scalars2, scalars1, scalars0, xticklabels = zip(*sorted(zip(scalars2, scalars1, scalars0, xticklabels)))
@@ -491,7 +493,7 @@ def plot_model_comparisson_balanced_acc(
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_xticks(x)
     ax.set_xticklabels(xticklabels)
-    ax.set(xlabel="Model", ylabel="Metric Score (%)")
+    ax.set(xlabel="", ylabel="Balanced Accuracy (%)")
     ax.set_ylim(bottom =y_min, top=y_max)
     ax.legend()
     autolabel(ax, rects0)
@@ -559,7 +561,8 @@ def plot_hyperparameter_comparisson(
     x_scale="linear",
     df_ground_truth=None,
     bar_plot=False,
-    xticklabelfunction=lambda parameter_list: parameter_list
+    xticklabelfunction=lambda parameter_list: parameter_list,
+    x_int_ticks=False
 ): 
     parameter = []
     scalars_train = []
@@ -574,7 +577,7 @@ def plot_hyperparameter_comparisson(
         scalars_val.append(round(get_log_metric(model_info["log"], metric=val_metric)*100,2))
         if df_ground_truth is not None and test_metric is not None:
             # read true a prediction categories from validation dataset
-            df_pred = pd.read_csv(os.path.join(model_info["pred_test"], "no_unknown", "best_balanced_acc.csv"))
+            df_pred = pd.read_csv(os.path.join(model_info["pred_test_0"], "no_unknown", "best_balanced_acc.csv"))
             scalars_test.append(round(get_test_metric(df_pred, df_ground_truth, test_metric)*100,2))   
         else:
             scalars_test.append(0)
@@ -585,11 +588,11 @@ def plot_hyperparameter_comparisson(
     parameter=xticklabelfunction(parameter)
 
     if bar_plot is True:
-        width = 0.35  # the width of the bars
+        width = 0.28  # the width of the bars
         x = np.arange(len(parameter))  # the label locations
-        rects0 = ax.bar(x - width, scalars_train, width, label="Train")
+        rects0 = ax.bar(x - width/ 2 if test_metric is None else x - width, scalars_train, width, label="Train")
         autolabel(ax, rects0)
-        rects1 = ax.bar(x, scalars_val, width, label="Validation")
+        rects1 = ax.bar(x + width/ 2 if test_metric is None else x , scalars_val, width, label="Validation")
         autolabel(ax, rects1)
         if df_ground_truth is not None and test_metric is not None:
             rects2 = ax.bar(x + width, scalars_test, width, label="Test")
@@ -604,6 +607,8 @@ def plot_hyperparameter_comparisson(
         if df_ground_truth is not None and test_metric is not None:
             ax.plot(parameter, scalars_test, '.g-', label="Test")
         ax.set_xscale(x_scale)
+        if x_int_ticks is True:
+            ax.xaxis.set_major_locator(MaxNLocator(integer=True))
         ax.grid(True)
         ax.set_yscale("linear")
     
@@ -613,5 +618,3 @@ def plot_hyperparameter_comparisson(
     fig.tight_layout()
 
     return fig
-
-    
