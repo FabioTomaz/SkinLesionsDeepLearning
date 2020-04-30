@@ -74,17 +74,6 @@ def get_transfer_model_param_map():
             dropout=None,
             batch=16
         ),
-        'Xception': BaseModelParam(
-            module_name='tensorflow.keras.applications.xception',
-            class_name='Xception',
-            input_size=(299, 299),
-            preprocessing_func=preprocess_input_trainset,
-            feepochs=2,
-            felr=1e-3,
-            ftlr=1e-3,
-            dropout=None,
-            batch=16
-        ),
         'VGG16': BaseModelParam(
             module_name='tensorflow.keras.applications.vgg16',
             class_name='VGG16',

@@ -1,5 +1,5 @@
 import os
-from utils import ensemble_predictions, formated_hyperparameter_str, get_gpu_index, save_prediction_results
+from utils import ensemble_predictions, ensemble_predictions_k_fold, formated_hyperparameter_str, get_gpu_index, save_prediction_results, apply_unknown_threshold
 print("GPU DEVICE: " + str(get_gpu_index()))
 os.environ["CUDA_VISIBLE_DEVICES"]=str(get_gpu_index())
 
@@ -18,7 +18,6 @@ from base_model_param import get_transfer_model_param_map
 from lesion_classifier import LesionClassifier
 from sklearn.model_selection import KFold, StratifiedKFold
 import numpy as np
-from utils import apply_unknown_threshold
 
 UNKNOWN_THRESHOLDS=[0.2, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5]
 
@@ -163,7 +162,8 @@ def predidct_test(
     lmbda,
     postfix,
     offline_dg_group,
-    online_dg_group
+    online_dg_group,
+    k_folds=0
 ):
     os.makedirs(pred_result_folder_test, exist_ok=True)
     df_test = get_dataframe_from_img_folder(test_image_folder, has_path_col=True)
@@ -182,83 +182,110 @@ def predidct_test(
         offline_dg_group,
         online_dg_group
     )
-    
-    for m in models_to_predict:
-        model_filepath = os.path.join(
-            model_folder, 
-            m["model_name"],
-            hyperparameter_str,
-            "{}.hdf5".format(postfix)
-        )
 
-        if not os.path.exists(model_filepath):
+    model_kfold_folders=range(k_folds)
+    if k_folds == 0:
+        model_kfold_folders=[0]
+
+    model_names = [model["model_name"] for model in models_to_predict]
+
+    for model_to_preict in models_to_predict:
+        for k_fold in model_kfold_folders:
             model_filepath = os.path.join(
                 model_folder, 
-                m["model_name"],
+                model_to_preict["model_name"],
                 hyperparameter_str,
-                "0",
                 "{}.hdf5".format(postfix)
             )
 
-        if os.path.exists(model_filepath):
-            print("===== Predict test data using \"{}_{}\" model =====".format(m['model_name'], postfix))
-            
-            model = load_model(
-                filepath=model_filepath, 
-                custom_objects={'balanced_accuracy': balanced_accuracy(len(category_names))}
-            )
-
-            df_softmax = LesionClassifier.predict_dataframe(
-                model=model, 
-                df=df_test,
-                category_names=category_names,
-#                unknown_category=unknown_category_name if args.unknown else None,
-                augmentation_pipeline=LesionClassifier.create_aug_pipeline(0, m['input_size'], True),
-                preprocessing_function=m['preprocessing_function'],
-                batch_size=batch_size,
-                workers=os.cpu_count(),
-            )
-
-            if unknown_method==1:
-                df_softmax_dict = apply_unknown_threshold(
-                    df_softmax,
-                    category_names,
-                    'image',
-                    'category',
-                    args.unknown,
-                    unknown_category
+            if not os.path.exists(model_filepath):
+                model_filepath = os.path.join(
+                    model_folder, 
+                    model_to_preict["model_name"],
+                    hyperparameter_str,
+                    str(k_fold),
+                    "{}.hdf5".format(postfix)
                 )
-                    
-                for unknown_thresh, df_softmax in df_softmax_dict.items():
-                    # Save model predictions 
-                    save_prediction_results(
-                        df_softmax,
-                        f"unknown_{unknown_thresh}" if unknown_thresh != 1.0 else "no_unknown",
-                        pred_result_folder_test,
-                        m["model_name"],
-                        postfix,
-                        hyperparameter_str=hyperparameter_str
-                    )
-            else:
+
+            if os.path.exists(model_filepath):
+                print("===== Predict test data using \"{}_{}\" with \"{}\" model =====".format(model_to_preict['model_name'], k_fold, postfix))
+                
+                model = load_model(
+                    filepath=model_filepath, 
+                    custom_objects={'balanced_accuracy': balanced_accuracy(len(category_names))}
+                )
+
+                df_softmax = LesionClassifier.predict_dataframe(
+                    model=model, 
+                    df=df_test,
+                    category_names=category_names,
+                    # unknown_category=unknown_category_name if args.unknown else None,
+                    augmentation_pipeline=LesionClassifier.create_aug_pipeline(0, model_to_preict['input_size'], True),
+                    preprocessing_function=model_to_preict['preprocessing_function'],
+                    batch_size=batch_size,
+                    workers=os.cpu_count(),
+                )
+
+                # Save model predictions 
+                # if unknown_method==1:
+                #     df_softmax_dict = apply_unknown_threshold(
+                #         df_softmax,
+                #         category_names,
+                #         'image',
+                #         'category',
+                #         args.unknown,
+                #         unknown_category
+                #     )
+                        
+                #     for unknown_thresh, df_softmax in df_softmax_dict.items():
+                #         save_prediction_results(
+                #             df_softmax,
+                #             model_to_preict["model_name"],
+                #             prediction_label=f"unknown_{unknown_thresh}" if unknown_thresh != 1.0 else "no_unknown",
+                #             pred_result_folder_test=pred_result_folder_test,
+                #             hyperparameter_str=hyperparameter_str,
+                #             postfix=postfix
+                #         )
+                # else:
                 save_prediction_results(
                     df_softmax,
-                    "no_unknown",
-                    pred_result_folder_test,
-                    m["model_name"],
-                    postfix,
-                    hyperparameter_str=hyperparameter_str
+                    model_to_preict["model_name"],
+                    pred_result_folder_test=pred_result_folder_test,
+                    hyperparameter_str=hyperparameter_str,
+                    prediction_label=os.path.join(str(k_fold), "no_unknown"),
+                    postfix=postfix
                 )                
 
-            del model
-            K.clear_session()
-        else:
-            print("\"{}\" doesn't exist".format(model_filepath))
+                del model
+                K.clear_session()
+            else:
+                print("\"{}\" doesn't exist".format(model_filepath))
+                return
+
+        if k_folds>0:
+            print("===== Ensembling predictions from {} k folds of {}\" model =====".format(k_folds, model_to_preict["model_name"]))
+            # Ensemble Models' k fold predictions
+            df_softmax = ensemble_predictions_k_fold(
+                result_folder=pred_result_folder_test, 
+                hyperparameter_str=hyperparameter_str, 
+                category_names=category_names, 
+                model_name=model_to_preict["model_name"], 
+                postfix=postfix,
+                k_folds=k_folds
+            )            
+
+        # Save ensemble predictions 
+        save_prediction_results(
+            df_softmax,
+            model_to_preict["model_name"],
+            pred_result_folder_test=pred_result_folder_test,
+            hyperparameter_str=hyperparameter_str,
+            postfix=postfix
+        )   
 
     if (len(models_to_predict)>1):
-        print("===== Ensembling predictions using \"{}_{}\" model =====".format(models_to_predict, postfix))
-        
-        model_names = [model["model_name"] for model in models_to_predict]
-        
+        print("===== Ensembling predictions using from {} models using {} =====".format(model_names, postfix))
+                
         # Ensemble Models' Predictions on Test Data
         df_ensemble = ensemble_predictions(
             result_folder=pred_result_folder_test, 
@@ -271,10 +298,8 @@ def predidct_test(
         # Save ensemble predictions 
         save_prediction_results(
             df_ensemble,
-            "no_unknown",
-            pred_result_folder_test,
-            "-".join(sorted(model_names)),
-            postfix
+            "-".join([f"{model_name}_{k_folds}" for model_name in sorted(model_names)]),
+            pred_result_folder_test=pred_result_folder_test
         )
 
 
@@ -298,7 +323,6 @@ if __name__ == '__main__':
                             'DenseNet121',
                             'DenseNet169',
                             'DenseNet201', 
-                            'Xception', 
                             'InceptionV3', 
                             'InceptionResNetV2', 
                             'VGG16', 
@@ -313,7 +337,7 @@ if __name__ == '__main__':
                             "ResNet152",
                         ], 
                         help='Models',
-                        default=["DenseNet201", "ResNet152"])
+                        default=["DenseNet201", "EfficientNetB2", "InceptionResNetV2"])
     parser.add_argument('--training', dest='training', action='store_true', help='Train models')
     parser.add_argument('--predtest', dest='predtest', action='store_true', help='Predict the test data')
     parser.add_argument('--online-data-augmentation-group', dest='online_dg_group', default=1, type=int)
@@ -420,5 +444,6 @@ if __name__ == '__main__':
             lmbda,
             postfix,
             offline_dg_group,
-            online_dg_group
+            online_dg_group,
+            k_folds=k_folds
         )
