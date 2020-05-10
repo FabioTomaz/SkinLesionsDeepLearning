@@ -43,6 +43,22 @@ def formated_hyperparameter_str(
     return f'balanced_{balanced_int}-samples_{samples}-feepochs_{feepochs}-ftepochs_{ftepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}-dggroup_{data_augmentation_group}'
 
 
+def formated_hyperparameters(parameters):
+    return formated_hyperparameter_str(
+        parameters.fe_epochs,
+        parameters.ft_epochs,
+        parameters.felr,
+        parameters.ftlr,
+        parameters.lmbda,
+        parameters.dropout,
+        parameters.batch_size,
+        parameters.samples,
+        parameters.balanced,
+        parameters.offline_dg_group,
+        parameters.online_dg_group
+    )
+
+
 def get_hyperparameters_from_str(hyperparameter_str):
     hyperparameter_combination = hyperparameter_str.split("-")
     hyperparameters = {}
@@ -180,7 +196,6 @@ def preprocess_input(x, data_format=None):
 
 def apply_unknown_threshold(
     df,
-    logits,
     category_names,
     id_col,
     y_col,
@@ -190,7 +205,7 @@ def apply_unknown_threshold(
     df_softmax_dict = {}
 
     # convert softmax values to floating point to become valid
-    original_softmax_probs = softmax(logits).astype(float) 
+    original_softmax_probs = df.iloc[:,1:9].values 
     
     # Apply softmax threshold to determine unknown class
     for unknown_thresh in unknown_thresholds:
@@ -225,10 +240,14 @@ def save_prediction_results(
     df_softmax,
     model_name,
     pred_result_folder_test="test_predict_results",
-    hyperparameter_str="",
+    parameters=None,
     prediction_label="no_unknown",
     postfix="best_balanced_acc"
 ):
+    hyperparameter_str=""
+    if parameters is not None:
+        hyperparameter_str = formated_hyperparameters(parameters)
+
     # Save results (multiple thresholds and no threhold)
     pred_folder = os.path.join(
         pred_result_folder_test, 
@@ -247,12 +266,13 @@ def save_prediction_results(
 
 def ensemble_predictions_k_fold(
     result_folder, 
-    hyperparameter_str,
+    parameters,
     category_names, 
     model_name='DenseNet201',
     postfix='best_balanced_acc',
     k_folds=5
 ):
+    hyperparameter_str = formated_hyperparameter_str(parameters)
     """ Ensemble predictions of different models. """
     # Load models' predictions
     df_dict = {
@@ -288,12 +308,15 @@ def ensemble_predictions_k_fold(
 
 def ensemble_predictions(
     result_folder, 
-    hyperparameter_str,
+    parameters,
     category_names, 
     model_names=['DenseNet201', 'ResNet152', 'EfficientNetB2'],
     postfix='best_balanced_acc'
 ):
     """ Ensemble predictions of different models. """
+
+    hyperparameter_str = formated_hyperparameter_str(parameters)
+
     # Load models' predictions
     df_dict = {
         model_name : pd.read_csv(

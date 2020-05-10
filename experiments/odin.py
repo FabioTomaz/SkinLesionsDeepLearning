@@ -4,8 +4,9 @@ import math
 import numpy as np
 import pandas as pd
 from typing import NamedTuple
-from keras.models import load_model
-from keras import backend as K
+import tensorflow as tf
+from tensorflow.keras.models import load_model
+from tensorflow.keras import backend as K
 from base_model_param import get_transfer_model_param_map
 from image_iterator import ImageIterator
 from metrics import balanced_accuracy
@@ -14,6 +15,8 @@ from lesion_classifier import LesionClassifier
 from tqdm import trange
 from sklearn.metrics import roc_auc_score
 from utils import logistic
+
+tf.compat.v1.disable_eager_execution()
 
 ModelAttr = NamedTuple('ModelAttr', [('model_name', str), ('postfix', str)])
 
@@ -42,8 +45,16 @@ def compute_baseline_softmax_scores(in_dist_pred_result_folder, out_dist_pred_re
                     f.write("{}\n".format(softmax_score))
 
 
-def compute_odin_softmax_scores(in_dist_pred_result_folder, in_dist_image_folder, out_dist_pred_result_folder, out_dist_image_folder,
-                                model_folder, softmax_score_folder, num_classes, batch_size):
+def compute_odin_softmax_scores(
+    in_dist_pred_result_folder, 
+    in_dist_image_folder, 
+    out_dist_pred_result_folder, 
+    out_dist_image_folder,
+    model_folder, 
+    softmax_score_folder, 
+    num_classes, 
+    batch_size
+):
     """ Calculate softmax scores for different combinations of ODIN parameters. """
     print('Begin to compute ODIN softmax scores')
     model_names = ['DenseNet201', 'Xception', 'ResNeXt50']
@@ -160,6 +171,7 @@ def get_perturbation_helper_func(model, temperature, num_classes):
     # Keras will call tf.nn.softmax_cross_entropy_with_logits when from_logits is True
     loss = K.categorical_crossentropy(label_tensor, scaled_dense_pred_output, from_logits=True)
 
+    print(model.inputs)
     # Compute gradient of loss with respect to inputs
     grad_loss = K.gradients(loss, model.inputs)
 
@@ -242,29 +254,43 @@ def auroc(in_dist_file, out_dist_file):
     return roc_auc_score(y_true, y_score)
 
 
-def compute_out_of_distribution_score(model_folder, df, num_classes, batch_size=32, temperature=2, magnitude=0.0002, delta=0.90385):
-    model_filepath = os.path.join(model_folder, 'DenseNet201_best_balanced_acc.hdf5')
-    print('Loading model: ', model_filepath)
-    model = load_model(filepath=model_filepath, custom_objects={'balanced_accuracy': balanced_accuracy(num_classes)})
+def compute_out_of_distribution_score(
+    model, 
+    model_params,
+    df, 
+    num_classes, 
+    parameters, 
+    temperature=2, 
+    magnitude=0.0001, 
+    delta=0.90385
+):
     image_data_format = K.image_data_format()
-    model_param_map = get_transfer_model_param_map()
     generator = ImageIterator(
         image_paths=df['path'].tolist(),
         labels=None,
-        augmentation_pipeline=LesionClassifier.create_aug_pipeline_val(model_param_map['DenseNet201'].input_size),
-        preprocessing_function=model_param_map['DenseNet201'].preprocessing_func,
-        batch_size=batch_size,
+        augmentation_pipeline=LesionClassifier.create_aug_pipeline(
+            0,
+            model_params.input_size,
+            True
+        ),
+        preprocessing_function=model_params.preprocessing_func,
+        batch_size=parameters.batch_size,
         shuffle=False,
         rescale=None,
         pregen_augmented_images=False,
-        data_format=image_data_format)
+        data_format=image_data_format
+    )
 
-    compute_perturbations, get_scaled_dense_pred_output = get_perturbation_helper_func(model, temperature, num_classes)
+    compute_perturbations, get_scaled_dense_pred_output = get_perturbation_helper_func(
+        model, 
+        temperature, 
+        num_classes
+    )
 
     df_score = df[['image']].copy()
     softmax_scores = []
     learning_phase = 0 # 0 = test, 1 = train
-    steps = math.ceil(df.shape[0] / batch_size)
+    steps = math.ceil(df.shape[0] / parameters.batch_size)
     for _ in trange(steps):
         images = next(generator)
         perturbations = compute_perturbations([images, learning_phase])[0]
@@ -278,11 +304,10 @@ def compute_out_of_distribution_score(model_folder, df, num_classes, batch_size=
         dense_pred_outputs = get_scaled_dense_pred_output([perturbative_images, learning_phase])[0]
         softmax_probs = softmax(dense_pred_outputs)
         softmax_scores.extend(np.max(softmax_probs, axis=-1).tolist())
-    
-    del model
-    K.clear_session()
 
     df_score['softmax_score'] = softmax_scores
-    df_score['out_dist_score'] = 1 - logistic(x=df_score['softmax_score'], x0=delta, k=20)
+    #df_score['out_dist_score'] = 1 - logistic(x=df_score['softmax_score'], x0=delta, k=20)
+    df.insert(loc=2, column="out_dist_score", value=np.where(df_score['softmax_score'] > delta, 0.0, 1.0))
+
     return df_score
 

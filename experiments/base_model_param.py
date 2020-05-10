@@ -1,8 +1,7 @@
 from typing import NamedTuple
 from types import FunctionType
-# from keras.applications.densenet import preprocess_input as preprocess_input_densenet
-
 from utils import preprocess_input as preprocess_input_trainset
+
 
 BaseModelParam = NamedTuple('BaseModelParam', [
     ('module_name', str),

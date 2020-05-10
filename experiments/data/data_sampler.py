@@ -74,7 +74,7 @@ def augment(source_dataframe, operations, n, img_size):
                     augmented_image = operation.perform_operation([augmented_image])[0]
 
             row['img'] = augmented_image
-            row['image'] = f"{row['image']}_{random.randrange(100000)}"
+            row['image'] = f"{row['image']}_{random.randrange(1000000)}"
 
             source_dataframe = source_dataframe.append(row)
             

@@ -33,9 +33,8 @@ class LesionClassifier():
         self, 
         model_folder, 
         input_size, 
+        parameters,
         image_data_format=None, 
-        batch_size=32, 
-        max_queue_size=10, 
         rescale=True, 
         preprocessing_func=None, 
         class_weight=None,
@@ -44,7 +43,6 @@ class LesionClassifier():
         categories_train=None, 
         image_paths_val=None, 
         categories_val=None,
-        online_data_augmentation_group=1
     ):
 
         self.history_folder = 'history'
@@ -54,8 +52,7 @@ class LesionClassifier():
             self.image_data_format = K.image_data_format()
         else:
             self.image_data_format = image_data_format
-        self.batch_size = batch_size
-        self.max_queue_size = max_queue_size
+        self.parameters = parameters
         self.preprocessing_func = preprocessing_func
         self.class_weight = class_weight
         self.num_classes = num_classes
@@ -63,12 +60,11 @@ class LesionClassifier():
         self.categories_train = categories_train
         self.image_paths_val = image_paths_val
         self.categories_val = categories_val
-        self.online_data_augmentation_group = online_data_augmentation_group
         
         self.log_date = datetime.datetime.now().isoformat()
 
         self.aug_pipeline_train = LesionClassifier.create_aug_pipeline(
-            self.online_data_augmentation_group,
+            self.parameters.online_dg_group,
             self.input_size,
             rescale
         )
@@ -184,7 +180,7 @@ class LesionClassifier():
             image_paths=self.image_paths_train,
             labels=self.categories_train,
             augmentation_pipeline=self.aug_pipeline_train,
-            batch_size=self.batch_size,
+            batch_size=self.parameters.batch_size,
             shuffle=True,
             rescale=None,
             preprocessing_function=self.preprocessing_func,
@@ -197,7 +193,7 @@ class LesionClassifier():
             image_paths=self.image_paths_val,
             labels=self.categories_val,
             augmentation_pipeline=self.aug_pipeline_val,
-            batch_size=self.batch_size,
+            batch_size=self.parameters.batch_size,
             shuffle=True,
             rescale=None,
             preprocessing_function=self.preprocessing_func,
@@ -246,6 +242,7 @@ class LesionClassifier():
         return [checkpoint_balanced_acc, checkpoint_balanced_acc_weights, checkpoint_latest, checkpoint_loss]
 
     def _create_csvlogger_callback(self, subdir):
+        """Create csv logger callback for logging train and validation metrics to a csv file"""
         if not os.path.exists(self.history_folder):
             os.makedirs(self.history_folder)
 
@@ -260,6 +257,7 @@ class LesionClassifier():
         )
 
     def _create_tensorboard_logger(self, subdir):
+        """Create csv logger callback for logging train and validation metrics to tensorboard"""
         if not os.path.exists(self.history_folder):
             os.makedirs(self.history_folder)
         return TensorBoard(
