@@ -72,10 +72,8 @@ def get_augmentation_group(data_aug_group, input_size, center=True, resize=True)
             Operations.Flip(probability=0.5, top_bottom_left_right="TOP_BOTTOM"),
             # Flip left/right
             Operations.Flip(probability=0.5, top_bottom_left_right="LEFT_RIGHT"),
-            # Shear Image
-            Operations.Shear(probability=0.5, max_shear_left=20, max_shear_right=20),
             # Random crops 
-            Operations.CropPercentage(probability=0.5, percentage_area=0.85, centre=center, randomise_percentage_area=False),
+            Operations.CropPercentage(probability=0.5, percentage_area=0.85, centre=center, randomise_percentage_area=True),
             # Resize the image to the desired input size 
             Operations.Resize(probability=resize_prob, width=input_size[0], height=input_size[1], resample_filter="BICUBIC")
         ],
@@ -87,8 +85,6 @@ def get_augmentation_group(data_aug_group, input_size, center=True, resize=True)
             Operations.Flip(probability=0.5, top_bottom_left_right="TOP_BOTTOM"),
             # Flip left/right
             Operations.Flip(probability=0.5, top_bottom_left_right="LEFT_RIGHT"),
-            # Shear Image
-            Operations.Shear(probability=0.5, max_shear_left=20, max_shear_right=20),
             # Random change brightness of the image
             Operations.RandomBrightness(probability=0.5, min_factor=0.5,max_factor=1.5),
             # Random change saturation of the image
@@ -96,7 +92,7 @@ def get_augmentation_group(data_aug_group, input_size, center=True, resize=True)
             # Random change saturation of the image
             Operations.RandomContrast(probability=0.5, min_factor=0.5, max_factor=1.5),
             # Random crops 
-            Operations.CropPercentage(probability=0.5, percentage_area=0.85, centre=center, randomise_percentage_area=False),
+            Operations.CropPercentage(probability=0.5, percentage_area=0.85, centre=center, randomise_percentage_area=True),
             # Resize the image to the desired input size 
             Operations.Resize(probability=resize_prob, width=input_size[0], height=input_size[1], resample_filter="BICUBIC")
         ],
@@ -117,7 +113,7 @@ def get_augmentation_group(data_aug_group, input_size, center=True, resize=True)
             # Random Skew CORNER
             Operations.Skew(probability=0.5, skew_type="CORNER", magnitude=1.3),
             # Random crops 
-            Operations.CropPercentage(probability=0.5, percentage_area=0.85, centre=center, randomise_percentage_area=False),
+            Operations.CropPercentage(probability=0.5, percentage_area=0.85, centre=center, randomise_percentage_area=True),
             # Resize the image to the desired input size 
             Operations.Resize(probability=resize_prob, width=input_size[0], height=input_size[1], resample_filter="BICUBIC")
         ],
@@ -131,14 +127,12 @@ def get_augmentation_group(data_aug_group, input_size, center=True, resize=True)
             Operations.Flip(probability=0.5, top_bottom_left_right="TOP_BOTTOM"),
             # Flip left/right
             Operations.Flip(probability=0.5, top_bottom_left_right="LEFT_RIGHT"),
-            # Shear Image
-            Operations.Shear(probability=0.5, max_shear_left=20, max_shear_right=20),
             # Random distortions
             Operations.Distort(probability=0.5, grid_width=8, grid_height=8, magnitude=15),
             # Random erasing
             Operations.RandomErasing(probability=0.5, rectangle_area=0.25),
             # Random crops 
-            Operations.CropPercentage(probability=0.5, percentage_area=0.85, centre=center, randomise_percentage_area=False),
+            Operations.CropPercentage(probability=0.5, percentage_area=0.85, centre=center, randomise_percentage_area=True),
             # Resize the image to the desired input size 
             Operations.Resize(probability=resize_prob, width=input_size[0], height=input_size[1], resample_filter="BICUBIC")
         ]

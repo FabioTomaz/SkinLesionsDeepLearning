@@ -32,7 +32,8 @@ def formated_hyperparameter_str(
     samples,
     balanced,
     offline_data_augmentation_group=1,
-    online_data_augmentation_group=1
+    online_data_augmentation_group=1,
+    unknown_train=False
 ):
     felr_str = format(felr, 'f')
     ftlr_str = format(ftlr, 'f')
@@ -40,7 +41,8 @@ def formated_hyperparameter_str(
     l2_str = "None" if lmda == None else format(lmda, 'f')
     balanced_int = 1 if balanced is True else 0
     data_augmentation_group = str(offline_data_augmentation_group) + str(online_data_augmentation_group)
-    return f'balanced_{balanced_int}-samples_{samples}-feepochs_{feepochs}-ftepochs_{ftepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}-dggroup_{data_augmentation_group}'
+    parameter_str = f'balanced_{balanced_int}-samples_{samples}-feepochs_{feepochs}-ftepochs_{ftepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}-dggroup_{data_augmentation_group}'
+    return os.path.join(parameter_str, "unknown_train") if unknown_train else parameter_str
 
 
 def formated_hyperparameters(parameters):
@@ -55,7 +57,8 @@ def formated_hyperparameters(parameters):
         parameters.samples,
         parameters.balanced,
         parameters.offline_dg_group,
-        parameters.online_dg_group
+        parameters.online_dg_group,
+        parameters.unknown_train
     )
 
 
