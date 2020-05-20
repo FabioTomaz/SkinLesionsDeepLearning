@@ -1,15 +1,14 @@
 import os
-from utils import ensemble_predictions, ensemble_predictions_k_fold, formated_hyperparameter_str, get_gpu_index, save_prediction_results, apply_unknown_threshold, formated_hyperparameters
+from utils import ensemble_predictions, ensemble_predictions_k_fold, get_gpu_index, save_prediction_results, apply_unknown_threshold, formated_hyperparameters
 print("GPU DEVICE: " + str(get_gpu_index()))
 os.environ["CUDA_VISIBLE_DEVICES"]=str(get_gpu_index())
-import pandas as pd
 import json
 import argparse
 import datetime
-import efficientnet.tfkeras
+#import efficientnet.tfkeras
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import load_model
-from tensorflow.keras import utils as tfutils
+from tensorflow.keras import utils
 from data.data_loader import load_isic_training_data, load_isic_training_and_out_dist_data, train_validation_split, compute_class_weight_dict, get_dataframe_from_img_folder
 from transfer_learn_classifier import TransferLearnClassifier
 from metrics import balanced_accuracy
@@ -18,7 +17,8 @@ from lesion_classifier import LesionClassifier
 from sklearn.model_selection import KFold, StratifiedKFold
 from typing import NamedTuple
 import numpy as np
-from odin import compute_out_of_distribution_score
+import pandas as pd
+#from odin import compute_out_of_distribution_score
 
 
 UNKNOWN_THRESHOLDS=[0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
@@ -35,7 +35,8 @@ ModelParameters = NamedTuple('ModelParameters', [
     ('offline_dg_group', int),
     ('online_dg_group', int),
     ('samples', int),
-    ('balanced', int)
+    ('balanced', int),
+    ('unknown_train', bool)
 ])
 
 def train_transfer_learning(
@@ -45,12 +46,14 @@ def train_transfer_learning(
     num_classes, 
     class_weight_dict, 
     model_folder,
+    history_folder,
     parameters,
     k_split=0
 ):
     # Create classifier
     classifier = TransferLearnClassifier(
         model_folder=model_folder,
+        history_folder=history_folder,
         base_model_param=model_param,
         fc_layers=[512], # e.g. [512]
         num_classes=num_classes,
@@ -58,9 +61,9 @@ def train_transfer_learning(
         metrics=[balanced_accuracy(num_classes), 'accuracy'],
         class_weight=class_weight_dict,
         image_paths_train=df_train['path'].tolist(),
-        categories_train=tfutils.to_categorical(df_train['category'], num_classes=num_classes),
+        categories_train=utils.to_categorical(df_train['category'], num_classes=num_classes),
         image_paths_val=df_val['path'].tolist(),
-        categories_val=tfutils.to_categorical(df_val['category'], num_classes=num_classes),
+        categories_val=utils.to_categorical(df_val['category'], num_classes=num_classes),
         parameters=parameters
     )
     print("Begin to train {}".format(model_param.class_name))
@@ -76,6 +79,7 @@ def train(
     num_classes, 
     class_weight_dict, 
     model_folder,
+    history_folder,
     parameters
 ):    
     for model_param in base_model_params:
@@ -94,6 +98,7 @@ def train(
                     num_classes, 
                     class_weight_dict,  
                     model_folder,
+                    history_folder,
                     parameters,
                     k_split=k_split
                 )
@@ -108,6 +113,7 @@ def train(
                 num_classes, 
                 class_weight_dict, 
                 model_folder,
+                history_folder,
                 parameters
             )
 
@@ -141,7 +147,7 @@ def handle_unknown(
             postfix=postfix
         )
     # Save model predictions 
-    if unknown_method==1:
+    elif unknown_method==1:
         # THRESHOLD
         print("HANDLING UNKNOWN CLASS WITH THRESHOLDING")
         # Compute softmax scores for unknown thresholds
@@ -247,24 +253,21 @@ def predidct_test(
             if os.path.exists(model_filepath):
                 print("===== Predict test data using \"{}_{}\" with \"{}\" model =====".format(model_to_predict.class_name, k_fold, postfix))
                 
-                # model = load_model(
-                #     filepath=model_filepath, 
-                #     custom_objects={'balanced_accuracy': balanced_accuracy(len(category_names))}
-                # )
+                model = load_model(
+                    filepath=model_filepath, 
+                    custom_objects={'balanced_accuracy': balanced_accuracy(len(category_names))}
+                )
 
-                # df_softmax = LesionClassifier.predict_dataframe(
-                #     model=model, 
-                #     df=df_test,
-                #     category_names=category_names,
-                #     augmentation_pipeline=LesionClassifier.create_aug_pipeline(0, model_to_predict.input_size, True),
-                #     preprocessing_function=model_to_predict.preprocessing_func,
-                #     batch_size=parameters.batch_size,
-                #     workers=os.cpu_count(),
-                # )
+                df_softmax = LesionClassifier.predict_dataframe(
+                    model=model, 
+                    df=df_test,
+                    category_names=category_names,
+                    augmentation_pipeline=LesionClassifier.create_aug_pipeline(0, model_to_predict.input_size, True),
+                    preprocessing_function=model_to_predict.preprocessing_func,
+                    batch_size=parameters.batch_size,
+                    workers=os.cpu_count(),
+                )
 
-                df_softmax = pd.read_csv(
-                    "/home/fmts/msc/experiments/test_predict_results/DenseNet201/balanced_1-samples_82400-feepochs_2-ftepochs_100-felr_0.001000-ftlr_0.000100-lambda_None-dropout_None-batch_16-dggroup_11/0/no_unknown/best_balanced_acc.csv"
-                ) 
                 df_softmax = handle_unknown(
                     None,
                     model_to_predict,
@@ -363,12 +366,9 @@ if __name__ == '__main__':
     parser.add_argument('--predtest', dest='predtest', action='store_true', help='Predict the test data')
     parser.add_argument('--online-data-augmentation-group', dest='online_dg_group', default=1, type=int)
     parser.add_argument('--unknown', type=int, default=0, help='Method to deal with unknown class')
-    parser.add_argument(
-        '--predtestresultfolder', 
-        help='Name of the prediction result folder for test data (default: %(default)s)', 
-        default='test_predict_results'
-    )
+    parser.add_argument('--predtestresultfolder', help='Name of the prediction result folder for test data (default: %(default)s)', default='test_predict_results')
     parser.add_argument('--modelfolder', help='Name of the model folder (default: %(default)s)', default='models')
+    parser.add_argument('--historyfolder', help='Name of the history log folder (default: %(default)s)', default='history')
     parser.add_argument('--postfix', help='Postfix name (default: %(default)s)', default='best_balanced_acc', choices=['best_balanced_acc', 'best_loss', 'latest'])
 
     args = parser.parse_args()
@@ -389,10 +389,12 @@ if __name__ == '__main__':
     class_weight_dict = compute_class_weight_dict(df_ground_truth)
 
     offline_dg_group = 1
+    unknown_train=False
     # Read Data METADATA File
     with open(os.path.join(data_folder, 'metadata.json')) as f:
         data_metadata = json.load(f)
         offline_dg_group = int(data_metadata["data_augmentation_group"])
+        unknown_train = bool(data_metadata["unknown_train"])
 
     # Set parameters object
     parameters = ModelParameters(
@@ -407,7 +409,8 @@ if __name__ == '__main__':
         offline_dg_group=offline_dg_group,
         online_dg_group=args.online_dg_group,
         samples=len(df_ground_truth['path'].tolist()),
-        balanced=all(round(value, 2) == 1 for value in class_weight_dict.values())
+        balanced=all(round(value, 2) == 1 for value in class_weight_dict.values()),
+        unknown_train=unknown_train
     )
 
     # Train models by Transfer Learning
@@ -416,15 +419,18 @@ if __name__ == '__main__':
     # Models for training/testing
     base_model_params = [model_param_map[x] for x in args.models]
 
+    category_names = known_category_names+[unknown_category_name] if unknown_train else known_category_names
+
     # Train Models
     if args.training:
         train(
             base_model_params, 
             df_ground_truth,  
             args.kfolds,
-            len(known_category_names), 
+            len(category_names), 
             class_weight_dict, 
             args.modelfolder,
+            args.historyfolder,
             parameters
         )
 
@@ -435,7 +441,7 @@ if __name__ == '__main__':
             test_image_folder,
             args.predtestresultfolder,
             base_model_params,
-            known_category_names,
+            category_names,
             args.unknown, 
             unknown_category_name,
             args.postfix,

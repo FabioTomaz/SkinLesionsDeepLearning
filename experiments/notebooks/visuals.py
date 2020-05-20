@@ -63,12 +63,20 @@ def plot_complexity_graph(
     return fig
 
 
-def plot_grouped_2bars(scalars, scalarlabels, xticklabels, title=None, xlabel=None, ylabel=None):
+def plot_grouped_2bars(
+    scalars, 
+    scalarlabels, 
+    xticklabels, 
+    title=None, 
+    xlabel=None, 
+    ylabel=None,
+    figsize=(10, 5)
+):
     x = np.arange(len(xticklabels))  # the label locations
     width = 0.35  # the width of the bars
 
     # Create grouped bar chart
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=figsize)
     ax.set_title(title)
     fig.patch.set_facecolor('white')
     rects1 = ax.bar(x - width/2, scalars[0], width, label=scalarlabels[0])
@@ -82,6 +90,7 @@ def plot_grouped_2bars(scalars, scalarlabels, xticklabels, title=None, xlabel=No
     autolabel(ax, rects1)
     autolabel(ax, rects2)
     fig.tight_layout()
+    return fig 
 
 
 def autolabel(ax, rects):
@@ -353,32 +362,23 @@ def plot_model_comparisson(
     df_ground_truth,
     metrics, 
     metric_labels,
-    models=[],
+    models=None,
     constant_parameters={},
     title="", 
     figsize=(10, 5), 
     y_min=0,
     y_max=100,
     parameter=None,
-    parameter_filter=None,
     xticklabelfunction=None
 ):
     # Use some kind of benchmark hyperparameters in order to compare the models
-    if parameter_filter == None:
-        models_info_list = filter_models_info(
-            models_info, 
-            models=models,
-            parameters=constant_parameters
-        )
-    else:
-        models_info_list = []
-        for i in parameter_filter:
-            constant_parameters[parameter] = i
-            models_info_list = models_info_list + filter_models_info(
-                models_info, 
-                models=models,
-                parameters=constant_parameters
-            )
+    models_info_list = filter_models_info(
+        models_info, 
+        models=models,
+        parameters=constant_parameters
+    )
+
+    print(models_info_list)
 
     xticklabels = []
     scalars0 = []
@@ -581,7 +581,7 @@ def plot_hyperparameter_comparisson(
             scalars_val[i].append(round(get_log_metric(model_info["log"], metric=val_metric[i])*100,2))
             if df_ground_truth is not None and len(test_metric)>0:
                 # read true a prediction categories from validation dataset
-                df_pred = pd.read_csv(os.path.join(model_info["pred_test_0"], "no_unknown", "best_balanced_acc.csv"))
+                df_pred = pd.read_csv(os.path.join(model_info["pred_test"], "no_unknown", "best_balanced_acc.csv"))
                 scalars_test[i].append(round(get_test_metric(df_pred, df_ground_truth, test_metric[i])*100,2))   
             else:
                 scalars_test[i].append(0)

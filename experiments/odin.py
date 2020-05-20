@@ -16,7 +16,6 @@ from tqdm import trange
 from sklearn.metrics import roc_auc_score
 from utils import logistic
 
-tf.compat.v1.disable_eager_execution()
 
 ModelAttr = NamedTuple('ModelAttr', [('model_name', str), ('postfix', str)])
 
@@ -161,6 +160,7 @@ def compute_odin_softmax_scores(
         del model
         K.clear_session()
 
+
 def get_perturbation_helper_func(model, temperature, num_classes):
     """ Return Keras functions for calculating perturbations. """
     # Compute loss based on the second last layer's output and temperature scaling
@@ -183,6 +183,7 @@ def get_perturbation_helper_func(model, temperature, num_classes):
 
     return compute_perturbations, get_scaled_dense_pred_output
 
+
 def norm_perturbations(x, image_data_format):
     std = [0.2422, 0.2235, 0.2315]
 
@@ -201,10 +202,12 @@ def norm_perturbations(x, image_data_format):
         x[..., 2] /= std[2]
     return x
 
+
 def get_tpr_and_fpr(scores_in, scores_out, delta):
     tpr = np.sum(scores_in > delta) / np.float(len(scores_in))
     fpr = np.sum(scores_out > delta) / np.float(len(scores_out))
     return tpr, fpr
+
 
 def find_best_delta_at_tpr95(scores_in, scores_out, delta_start=None, delta_end=None, delta_num=1000000):
     """
@@ -241,6 +244,7 @@ def find_best_delta_at_tpr95(scores_in, scores_out, delta_start=None, delta_end=
     fpr_at_tpr95 = fpr_sum / tpr95_count
     return fpr_at_tpr95, delta_best
 
+
 def auroc(in_dist_file, out_dist_file):
     """
     Area Under the Receiver Operating Characteristic Curve (ROC AUC).
@@ -264,6 +268,8 @@ def compute_out_of_distribution_score(
     magnitude=0.0001, 
     delta=0.90385
 ):
+    tf.compat.v1.disable_eager_execution()
+    
     image_data_format = K.image_data_format()
     generator = ImageIterator(
         image_paths=df['path'].tolist(),

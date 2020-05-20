@@ -32,6 +32,7 @@ class LesionClassifier():
     def __init__(
         self, 
         model_folder, 
+        history_folder,
         input_size, 
         parameters,
         image_data_format=None, 
@@ -44,8 +45,7 @@ class LesionClassifier():
         image_paths_val=None, 
         categories_val=None,
     ):
-
-        self.history_folder = 'history'
+        self.history_folder=history_folder
         self.model_folder = model_folder
         self.input_size = input_size
         if image_data_format is None:
@@ -145,7 +145,6 @@ class LesionClassifier():
             augmentation_pipeline=augmentation_pipeline,
             batch_size=batch_size,
             shuffle=False,  # shuffle must be False otherwise will get a wrong balanced accuracy
-            rescale=None,
             preprocessing_function=preprocessing_function,
             pregen_augmented_images=False,  # Only 1 epoch.
             data_format=K.image_data_format()
@@ -182,7 +181,6 @@ class LesionClassifier():
             augmentation_pipeline=self.aug_pipeline_train,
             batch_size=self.parameters.batch_size,
             shuffle=True,
-            rescale=None,
             preprocessing_function=self.preprocessing_func,
             pregen_augmented_images=False,
             data_format=self.image_data_format
@@ -195,7 +193,6 @@ class LesionClassifier():
             augmentation_pipeline=self.aug_pipeline_val,
             batch_size=self.parameters.batch_size,
             shuffle=True,
-            rescale=None,
             preprocessing_function=self.preprocessing_func,
             pregen_augmented_images=True, # Since there is no randomness in the augmentation pipeline.
             data_format=self.image_data_format
