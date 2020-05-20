@@ -8,7 +8,13 @@ In this section we present conclusions, final remarks, and point to directions f
     In conclusion, several remarks are in order:
     
     \begin{itemize}
-        \item conclusions
+        \item As the dataset of the ISIC 2019 dataset is far different from ImageNet, extracting and fine tuning all the parameters up to the highest layer consistently yielded better performance on all pre-trained models when compared with only training the classifier. Therefore, when a pre-trained model is optimized for a far different dataset, the fine tuning process will allow it to generalize knowledge to a different domain.
+    
+        \item Transfer learning provides a good framework for the classification of skin lesions as most pre-trained models are well optimized for a wide range of hyperparameters, which removes the need for an extensive hyperparameter optimization often required on learning from scratch approaches. This property allows beginners to easily train and test deep learning models without machine learning expertise.    
+    
+        \item In skin lesion classification, transfer learning pre-trained models can have a big impact on the performance depending on the amount of data available. For instance, if some of the classes have a low amount of samples and the trained model is too complex (i.e. large amount of trainable parameters) it will lead to overfitting, however, if there is a large amount of data available and the pre-trained model as few trainable parameters it will lead to worse performance by causing bias, As such, one should always choose the pre-trained model depending on the amount of data available.
+        
+        \item Data augmentation should be used carefully depending on the classification problem. Augmentation that s
     \end{itemize}
 
 \section{Future Work}

@@ -222,7 +222,7 @@ First, \autoref{section:models} will study which pre-trained models work best fo
         \label{fig:samples_comp}
     \end{figure}
     
-    The results from the plot graph in Figure \ref{fig:densenet_variations_5000_comp} showed that one could use a  smaller pre-trained model from DenseNet, while maintaining similar performance, which would overall be benefitial to reduce overfitting. However, with a bigger dataset one could argue that the gap between models with high and low number of trainable parameters would increase. but that is still not the case (see Figure \ref{fig:densenet_variations_20264_comp}). Even though DenseNet201 got the best performance in comparison with it's smaller versions, this improvement is unsubstantial as the difference between the DenseNet121 and DenseNet201 on test data is about ?\%. Considering the results, that difference becomes even more irrelevant when taken into consideration that the gap between train and validation on DenseNet121 is substancially smaller than the one of DenseNet201. As such, a smaller model proves to be a better choice as it reduces overfitting while keeping similar performance to bigger models. \par
+    The results from the plot graph in Figure \ref{fig:densenet_variations_5000_comp} show that one could use a  smaller pre-trained model from DenseNet, while maintaining similar performance, which would overall be beneficial to reduce overfitting. However, with a bigger dataset one could argue that the gap between models with high and low number of trainable parameters would increase but that is still not the case (see Figure \ref{fig:densenet_variations_20264_comp}). Even though DenseNet201 got the best performance in comparison with it's smaller versions, this improvement is not substantial as the difference between the DenseNet121 and DenseNet201 on test data is about 0.56\%. Considering the results, that difference becomes even more irrelevant when taken into consideration that the gap between train and validation on DenseNet121 is 10.14\% which is substantially smaller when compared with  DenseNet201 which is 13.88\%. As such, the smaller model DenseNet121 proves to be a better choice as it reduces overfitting while keeping similar performance to bigger models. \par
     
     \begin{figure}[ht]
         \centering
@@ -248,19 +248,19 @@ First, \autoref{section:models} will study which pre-trained models work best fo
     
     Considering the results from \ref{fig:samples_comp}, there is a considerable improvement on the overall performance by increasing the dataset. Virtually one could assume that increasing the dataset size through other techniques such as data augmentation could improve the overall performance of the network, specially in underrepresented classes. Different strategies of data augmentation can be used, one of them being offline data augmentation, meaning that a bigger dataset is generated before the training process from an original dataset through augmentation techniques. However, there are different methods for augmenting images such as rotations or distortions and they can be combined together to produce images which are substancially different from their originals. As such, depending on the number of augmentations to be considered there could be a huge amount of different combinations between them specially considering that some of them have different variations and parameters which can quite change the augmentation (the magnitude of a distortion or the angle of a rotation). Therefore, it is important to determine what combinations of data augmentation techniques significantly improve the overall performance for the problem of skin lesion classification. \par
     
-    Figure \ref{fig:data_aug_group_bal_acc_comp} shows a comparison between different augmentation groups applied to the hyperparameter tuned DenseNet201 obtained from \autoref{section:hyperparameters} with 20264 class balanced samples (2533 per class), meaning that underrepresented classes are oversampled through the augmentation techniques from each of the groups, and overrepresented classes are undersampled by choosing samples randomly from that class without repetition. In turn, this means that only ?????x samples are oversampled and the rest of the images are original ones. The presented groups are:
+    Figure \ref{fig:data_aug_group_bal_acc_comp} shows a comparison between different augmentation groups applied to the hyperparameter tuned DenseNet201 obtained from \autoref{section:hyperparameters} with 20264 class balanced samples (2533 per class), meaning that underrepresented classes are oversampled through the augmentation techniques from each of the groups, and overrepresented classes are undersampled by choosing samples randomly from that class without repetition. In turn, this means that 8978 samples are generated through data augmentation and the rest of the images are original. The presented groups are:
     \begin{itemize}
         \item Group 0: No augmentation techniques are applied. Oversampling is done by randomly copy and pasting samples from a specific class with repetition. This is the baseline which other groups should be compared against.
-        \item Group 1: Composed of rotations of 90 degrees, flips from top to bottom or vice versa, flips from left to right or vice versa, not centered crops that keep 85\% of the original size and shears with a variation anywhere from 20 degrees towards the left side of the image to 20 degrees towards the right side of the image. 
+        \item Group 1: Composed of slight variations to the original image, such as rotations of 90 degrees (clock wise), flips from top to bottom or vice versa, flips from left to right or vice versa and crops that keep 85\% of the original image pixels. 
         \item Group 2: Composed of the augmentation techniques of group 1 plus some adjustments on pixel intensities, specifically, brightness changes from 50\% to 150\% (100\% being the original image and 0\% being a black image), contrast changes from 50\% to 150\% (100\% being the original image and 0\% being a solid grey image), and coloration changes from 50\% to 150\% (100\% being the original and 0\% being a black and white image).
-        \item Group 3: Composed of the augmentation techniques of group 1 plus perspective transformations. These transformations include tilts on either the left or right side, tilts forward and backward and skews from a random corner of an image.
+        \item Group 3: Composed of the augmentation techniques of group 1 plus perspective transformations. These transformations include tilts on either the left or right side, tilts forward and backward, skews from a random corner of an image and finally, shears with a variation anywhere from 20 degrees towards the left side of the image to 20 degrees towards the right side of the image. 
         \item Group 4: Composed of the augmentation techniques of group 1 plus noise induction augmentation techniques. Elastic distortions are applied with a grid size of 8, meaning that the image is divided into 8x8 cubes and each region is distorted independently. Random erasing is also applied, which takes a random area equivalent to 25\% of the original image and replaces it by random pixels, meaning that each pixel has a random intensity producing noise in that area.
     \end{itemize}
     In group 1, 2, 3 and 4 there is a probability of 0.5 of applying a specific augmentation technique in the group augmentation pipeline, which means that the same sample augmented multiple times will likely produce different augmented samples. This is a desirable property as producing the same synthetic sample over and over again would produce a lot of repetition in highly undersampled classes, and eventually lead to problems like overfitting as in each epoch the network would minimize loss for the same repeated sample, rather than learning from variations of that sample. \par
     
     Considering the results from Figure \ref{fig:data_aug_group_bal_acc_comp}, overall data augmentation does improve the performance in comparison with group 0, which does not employ any type of augmentation. Moreover, it seems the simpler augmentation approaches like group 1 and 2 perform the best, while more complex augmentations groups such as group 3 and 4 perform worst.   \par
     
-    This results indicate that more conventional augmentation techniques alone perform better, which does make sense in the context of skin lesion classidicatino. As described in \autoref{chapter:sota} a common method used by dermathologists to identify skin lesions is the ABCDE method, which relies in features like the shape and color of the lesion to be diagnosed. Therefore, by changing such features we are potentially removing or changing important information about the lesion itself, which consequently will make the network perform worst. For instance, group 4 introduces noise inducing transformations, however, one cannot predict if the random erasing will erase important information from the lesion itself or if the distortion performed will alter the shape of the lesion in such a way that it is no longer characteristic of it's category. Similarly, by changing the colors of the lesion in group 2 we are pottentially changing important information about the colour of the lesion which is one of the most important features to consider when diagnosing a lesion \cite{?}.  \par
+    This results indicate that more conventional augmentation techniques alone perform better, which does make sense in the context of skin lesion classidicatino. As described in \autoref{chapter:sota} a common method used by dermathologists to identify skin lesions is the ABCDE method, which relies in features like the shape and color of the lesion to be diagnosed. Therefore, by changing such features we are potentially removing or changing important information about the lesion itself, which consequently will make the network perform worst. For instance, group 4 introduces noise inducing transformations, however, one cannot predict if the random erasing will erase important information from the lesion itself or if the distortion performed will alter the shape of the lesion in such a way that it is no longer characteristic of it's category. Similarly, by changing the colors of the lesion in group 2 we are potentially changing important information about the colour of the lesion which is often an important property used by dermatologists to diagnose a lesion in methods such as ABCDE.  \par
     
     \begin{figure}[ht]
         \centering
@@ -303,7 +303,7 @@ First, \autoref{section:models} will study which pre-trained models work best fo
     \begin{figure}[ht]
         \centering
         \includegraphics[width=\textwidth]{figs/densenet201_balanced_samples_metrics_comp.pdf}
-        \caption{Comparison of the balanced multi-class accuracy for different balanced dataset sizes using the described oversampling and undersampling techniques}
+        \caption{Comparison of \ac{BMA} and accuracy for different balanced dataset sizes using the described oversampling and undersampling techniques}
         \label{fig:densenet201_balanced_samples_metrics_comp}
     \end{figure}
 
@@ -359,11 +359,55 @@ First, \autoref{section:models} will study which pre-trained models work best fo
     \begin{itemize}
         \item Following Gessert et al's (ISIC 2019 winner) approach, we will train models with an additional outlier class, with additional samples.
         \item Following Zhou et al's submission, we are going to apply a top-1 softmax probability threshold.
-        \item Finally, we are going to integrate the ODIN classifier \cite{odin}, following Wang's approach \cite{Wang}.
+        \item Finally, we are going to integrate the \ac{ODIN} classifier \cite{odin}, following Wang's approach \cite{Wang}.
     \end{itemize}
     
-    \subsection{Outlier class}
-    
     \subsection{Softmax threshold}
-    
+        Multi-class classification problems using deep neural networks often use a softmax layer at the highest layer of the neural network classifier. These softmaxes always add up to 1, and are spread accross all classes. As such, the network will presumably try to optimize softmax probabilities by maximizing the softmax of the ground truth class and minimizing the probabilities for other classes. Although if an out of distribution sample is predicted using a 8 class model trained on ISIC 2019 the softmaxes will still add up to 1, one can make the assumption that the highest score will be lower as the model will likely not be confident of it's predictions. \par
+        
+        Softmax thresholding is therefore a method that classifies a sample as out of distribution if the highest softmax score is lower than a specific threshold. Mathematically, :
+        
+        However, it's not clear what threshold might benefit the model the most. Our findings on Figure \ref{fig:densenet121_threshold_comp}  hint that low thresholds have close to no impact on the classification of the out of distribution samples while high thresholds negatively impact the model performance. 
+        \begin{figure}[ht]
+            \centering
+            \includegraphics[width=0.6\textwidth]{figs/densenet121_threshold_comp.pdf}
+            \caption{Comparison of different threshold values for the detection of out of distribution samples from the test set.}
+            \label{fig:densenet121_threshold_comp}
+        \end{figure}
+        
+        Considering the results, low threshold values having no impact stem from the fact that the our model often outputs high softmax scores towards a specific class. This is an expected attribute of these types of deep learning models because they were optimized for 8 classes as opposed to 9, which means that they will try to maximize softmax scores towards one of the 8 classes rather than considering that a sample might not be part of the initial 8 class distribution of the training dataset. \par
+        
+        This property also reflects in the results of higher thresholds, because such thresholds start negatively impacting correctly classified samples (by the neural network) from other classes as seen by the confusion matrix in Figure \ref{fig:densenet121_conf_matrix_threshold}. \par 
+        \begin{figure}[ht]
+            \centering
+            \includegraphics[width=0.6\textwidth]{figs/densenet121_conf_matrix_threshold.pdf}
+            \caption{Confusion matrix of the test set predictions on the hyperparameter tuned DenseNet121 trained with 8 classes where out of distribution samples are identified with a threshold of 0.7}
+            \label{fig:densenet121_conf_matrix_threshold}
+        \end{figure}
+
+        
     \subsection{ODIN classifier}
+        There are 3 parameters of \ac{ODIN} that need tuning, namely: the temperature scaling $T$, the perturbation magnitude $\varepsilon$ and the threshold $\sigma$. However, because of the lack of time we decided to not tune these parameters, and instead use the ones tuned by Wang in his approach towards ISIC 2019 \cite{Wang}. These are $T = 2$, $\varepsilon = 0.0002$ and $\sigma = 0.90385$. \par
+        \begin{figure}[ht]
+            \centering
+            \includegraphics[width=0.6\textwidth]{figs/densenet121_conf_matrix_odin.pdf}
+            \caption{Confusion matrix of the test set predictions on the hyperparameter tuned DenseNet121 trained with 8 classes where out of distribution samples are identified using the ODIN detector}
+            \label{fig:densenet121_conf_matrix_odin}
+        \end{figure}
+        
+        This results in an accuracy of ?\% and a \ac{BMA} of ?\%. From the results in the confusion matrix of Figure \ref{fig:densenet121_conf_matrix_odin}, it is clear that ODIN is not performing well enough as predictions towards the unknown class are evenly distributed across the 9 classes. It is hypothesized that ODIN is not a good option for out of distribution detection in skin lesion classification, as in and out of distribution samples are very similar to each other, which means that techniques like temperature scaling and adding small perturbations to the inputs have a small impact on the classification results. This contrasts with it's usage on the original paper \cite{odin}, where the in distribution samples were from CIFAR-10 \cite{?} which consists of 60000 images in 10 classes and the out of distribution samples were far different from the training dataset, within which uniform and gaussian noise samples, samples from the Tiny ImageNet dataset \cite{?} which is composed of 200 classes and finally samples from the LSUN dataset \cite{?} which is composed of 30 classes (10 scene categories and 20 object categories). As such, presumably ODIN only works well when the training dataset is far different from the out of distribution samples. \par 
+    \subsection{Outlier class}
+        It is evident from the results so far that only using softmax predictions to determine if a sample is in or out of distribution is not enough. As such, our final approach is to re-train the original DenseNet121 model with a 9th class with the out of distribution data described in \autoref{chapter:environment}. \par
+        
+        \begin{figure}[ht]
+            \centering
+            \includegraphics[width=0.6\textwidth]{figs/densenet121_conf_matrix_9thclass.pdf}
+            \caption{Confusion matrix of the test set predictions on the hyperparameter tuned DenseNet121 trained with 9 classes where the 9th class is composed of the out of distribution data described in \autoref{chapter:environment}}
+            \label{fig:densenet121_conf_matrix_9thclass}
+        \end{figure}
+        
+        As shown in the confusion matrix in Figure \ref{fig:densenet121_conf_matrix_9thclass}, results are considerably better than the previous approaches with an overall accuracy of ?\% and a \ac{BMA} of ?\%. However, one important aspect to consider is that the sample size of the out of distribution category is quite small, which can be biasing the results. \par
+
+\section{Results discussion} 
+\label{section:discussion}
+It is 

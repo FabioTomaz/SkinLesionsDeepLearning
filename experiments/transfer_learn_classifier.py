@@ -21,6 +21,7 @@ class TransferLearnClassifier(LesionClassifier):
     def __init__(
         self, 
         model_folder, 
+        history_folder,
         base_model_param, 
         fc_layers=None, 
         num_classes=None, 
@@ -89,6 +90,7 @@ class TransferLearnClassifier(LesionClassifier):
 
         super().__init__(
             model_folder, 
+            history_folder,
             base_model_param.input_size, 
             parameters,
             preprocessing_func=base_model_param.preprocessing_func, 

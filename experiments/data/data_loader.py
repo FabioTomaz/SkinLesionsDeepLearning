@@ -46,7 +46,7 @@ def load_isic_training_and_out_dist_data(isic_image_folder, ground_truth_file, o
     return df_combined, category_names
 
 def train_validation_split(df, test_size=0.2):
-    df_train, df_val = train_test_split(df, stratify=df['category'], test_size=test_size, random_state=1)
+    df_train, df_val = train_test_split(df, stratify=df['category'], test_size=test_size)
     return df_train, df_val
 
 def compute_class_weight_dict(df):

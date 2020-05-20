@@ -18,33 +18,11 @@ from data_loader import load_isic_training_data, load_isic_training_and_out_dist
 from augmentations import get_augmentation_group, crop_center
 
 
-# Mean and STD calculated over the Training Set
-# Mean:[0.6236094091893962, 0.5198354883713194, 0.5038435406338101]
-# STD:[0.2421814437693499, 0.22354427793687906, 0.2314805420919389]
-def standardize(
-    x, 
-    mean=[0.6236, 0.5198, 0.5038], 
-    std=[0.2422, 0.2235, 0.2315]
-):
-
-    x /= 255.
-
-    x[..., 0] -= mean[0]
-    x[..., 1] -= mean[1]
-    x[..., 2] -= mean[2]
-
-    x[..., 0] /= std[0]
-    x[..., 1] /= std[1]
-    x[..., 2] /= std[2]
-
-    return x
-
-
 def load_image(filename, target_size=None, center_crop=True):
 
     def _resize(img, target_size):
         assert target_size[0] == target_size[1]
-        return img.resize(target_size, PIL.Image.NEAREST)
+        return img.resize(target_size, PIL.Image.BICUBIC)
 
     img = PIL.Image.open(filename).convert('RGB')
     if center_crop:
@@ -123,6 +101,7 @@ def process(
     target_img_size, 
     training_samples, 
     class_balance,
+    min_samples,
     data_augmentation_group,
     unknown_images_path=None,
     unknown_train=False
@@ -160,6 +139,11 @@ def process(
         if (training_samples is None):
             training_samples=total_sample_count
         samples_per_category = [floor(training_samples/len(count_per_category)) for i in count_per_category]
+    elif min_samples:
+        for i, _ in count_per_category.most_common():
+            # Oversample/undersample
+            count_ratio = float(count_per_category[i])/total_sample_count
+            samples_per_category[i] = floor(count_ratio*training_samples)
     else:
         for i, _ in count_per_category.most_common():
             if (training_samples is None):
