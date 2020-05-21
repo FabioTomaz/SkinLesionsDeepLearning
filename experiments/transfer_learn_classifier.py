@@ -7,7 +7,7 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 #from tensorflow import distribute
-from utils import formated_hyperparameter_str
+from utils import formated_hyperparameters
 import os
 
 
@@ -106,22 +106,8 @@ class TransferLearnClassifier(LesionClassifier):
 
 
     def train(self, k_split=0, workers=1):
-        model_subdir = os.path.join(
-            formated_hyperparameter_str(
-                self.parameters.fe_epochs,
-                self.parameters.ft_epochs,
-                self.parameters.felr,
-                self.parameters.ftlr,
-                self.parameters.lmbda,
-                self.parameters.dropout,
-                self.parameters.batch_size,
-                len(self.image_paths_train) + len(self.image_paths_val),
-                all(round(value, 2) == 1 for value in self.class_weight.values()),
-                self.parameters.offline_dg_group,
-                self.parameters.online_dg_group
-            ),
-            str(k_split)
-        )
+        # Sub pre-trained model folder
+        model_subdir = os.path.join(formated_hyperparameters(self.parameters), str(k_split))
 
         # Checkpoint Callbacks
         checkpoints = super()._create_checkpoint_callbacks(model_subdir)
