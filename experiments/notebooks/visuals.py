@@ -377,9 +377,7 @@ def plot_model_comparisson(
         models=models,
         parameters=constant_parameters
     )
-
-    print(models_info_list)
-
+    
     xticklabels = []
     scalars0 = []
     scalars1 = []

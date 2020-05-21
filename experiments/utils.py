@@ -247,7 +247,6 @@ def save_prediction_results(
     hyperparameter_str=""
     if parameters is not None:
         hyperparameter_str = formated_hyperparameters(parameters)
-    print(hyperparameter_str)
     # Save results (multiple thresholds and no threhold)
     pred_folder = os.path.join(
         pred_result_folder_test, 
