@@ -18,10 +18,10 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from typing import NamedTuple
 import numpy as np
 import pandas as pd
-#from odin import compute_out_of_distribution_score
+from odin import compute_out_of_distribution_score
 
 
-UNKNOWN_THRESHOLDS=[0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+UNKNOWN_THRESHOLDS=[0.0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 ModelParameters = NamedTuple('ModelParameters', [
     ('batch_size', int),
@@ -168,7 +168,7 @@ def handle_unknown(
                 model_params.class_name,
                 prediction_label=os.path.join(
                     prediction_label,
-                    f"unknown_{unknown_thresh}" if unknown_thresh != 1.0 else "no_unknown"
+                    f"unknown_{unknown_thresh}" if unknown_thresh > 0.0 else "no_unknown"
                 ),
                 pred_result_folder_test=pred_result_folder_test,
                 parameters=parameters,
@@ -272,13 +272,14 @@ def predidct_test(
                 )
 
                 df_softmax = handle_unknown(
-                    None,
+                    model,
                     model_to_predict,
                     parameters,
                     df_softmax,
                     df_test,
                     unknown_method,
-                    prediction_label=str(k_fold)
+                    prediction_label=str(k_fold),
+                    pred_result_folder_test=pred_result_folder_test
                 )                
 
                 #del model
@@ -416,7 +417,7 @@ if __name__ == '__main__':
         max_queue_size = args.maxqueuesize,
         offline_dg_group=offline_dg_group,
         online_dg_group=args.online_dg_group,
-        samples=len(df_ground_truth['path'].tolist()) + len(df_val['path'].tolist()) ,
+        samples=len(df_ground_truth['path'].tolist()),
         balanced=all(round(value, 2) == 1 for value in class_weight_dict.values()),
         unknown_train=unknown_train
     )

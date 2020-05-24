@@ -18,7 +18,7 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from typing import NamedTuple
 import numpy as np
 import pandas as pd
-#from odin import compute_out_of_distribution_score
+from odin import compute_out_of_distribution_score
 
 
 UNKNOWN_THRESHOLDS=[0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
@@ -269,7 +269,7 @@ def predidct_test(
                 )
 
                 df_softmax = handle_unknown(
-                    None,
+                    model,
                     model_to_predict,
                     parameters,
                     df_softmax,

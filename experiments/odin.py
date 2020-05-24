@@ -110,7 +110,7 @@ def compute_odin_softmax_scores(
         model_filepath = os.path.join(model_folder, "{}_{}.hdf5".format(modelattr.model_name, modelattr.postfix))
         print('Loading model: ', model_filepath)
         model = load_model(filepath=model_filepath, custom_objects={'balanced_accuracy': balanced_accuracy(num_classes)})
-        need_norm_perturbations = (modelattr.model_name == 'DenseNet201' or modelattr.model_name == 'ResNeXt50')
+        need_norm_perturbations = ('DenseNet' in modelattr.model_name or modelattr.model_name == 'ResNeXt50')
 
         for temperature in temperatures:
             compute_perturbations, get_scaled_dense_pred_output = get_perturbation_helper_func(model, temperature, num_classes)
