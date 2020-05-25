@@ -5,7 +5,7 @@ os.environ["CUDA_VISIBLE_DEVICES"]=str(get_gpu_index())
 import json
 import argparse
 import datetime
-#import efficientnet.tfkeras
+import efficientnet.tfkeras
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import load_model
 from tensorflow.keras import utils

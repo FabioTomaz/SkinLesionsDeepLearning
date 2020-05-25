@@ -16,7 +16,6 @@ from tqdm import trange
 from sklearn.metrics import roc_auc_score
 from utils import logistic
 
-
 ModelAttr = NamedTuple('ModelAttr', [('model_name', str), ('postfix', str)])
 
 def compute_baseline_softmax_scores(in_dist_pred_result_folder, out_dist_pred_result_folder, softmax_score_folder):
@@ -269,7 +268,7 @@ def compute_out_of_distribution_score(
     delta=0.90385
 ):
     tf.compat.v1.disable_eager_execution()
-    
+
     image_data_format = K.image_data_format()
     generator = ImageIterator(
         image_paths=df['path'].tolist(),
@@ -313,7 +312,7 @@ def compute_out_of_distribution_score(
 
     df_score['softmax_score'] = softmax_scores
     #df_score['out_dist_score'] = 1 - logistic(x=df_score['softmax_score'], x0=delta, k=20)
-    df.insert(loc=2, column="out_dist_score", value=np.where(df_score['softmax_score'] > delta, 0.0, 1.0))
+    df_score.insert(loc=2, column="out_dist_score", value=np.where(df_score['softmax_score'] > delta, 0.0, 1.0))
 
     return df_score
 
