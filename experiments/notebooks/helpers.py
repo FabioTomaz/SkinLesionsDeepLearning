@@ -64,6 +64,8 @@ def filter_models_info(models_info, models=None, parameters=None):
                                 break
                         except ValueError:
                             continue
+                else:
+                    add=False
 
         if add is True:
             models_info_list.append(model_info)

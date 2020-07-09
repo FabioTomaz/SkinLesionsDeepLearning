@@ -38,7 +38,7 @@ def plot_complexity_graph(
 
     ax2.plot(df['balanced_accuracy'], label='Training Accuracy')
     ax2.plot(df['val_balanced_accuracy'], label='Validation Accuracy')
-    ax2.set(title='Training and Validation Accuracy', xlabel='Epoch', ylabel='Balanced Accuracy')
+    ax2.set(title='Training and Validation Accuracy', xlabel='Epoch', ylabel='BMA')
     ax2.set_xlim([epoch_min, epoch_max])
     ax2.set_ylim([accuracy_min, accuracy_max])
     ax2.legend()
@@ -73,7 +73,7 @@ def plot_grouped_2bars(
     figsize=(10, 5)
 ):
     x = np.arange(len(xticklabels))  # the label locations
-    width = 0.35  # the width of the bars
+    width = 0.42  # the width of the bars
 
     # Create grouped bar chart
     fig, ax = plt.subplots(figsize=figsize)
@@ -86,9 +86,44 @@ def plot_grouped_2bars(
     ax.set_xticks(x)
     ax.set_xticklabels(xticklabels)
     ax.set(xlabel=xlabel, ylabel=ylabel)
+    # ax.set_ylim(top =100)
     ax.legend()
     autolabel(ax, rects1)
     autolabel(ax, rects2)
+    fig.tight_layout()
+    return fig 
+
+
+def plot_grouped_3bars(
+    scalars, 
+    scalarlabels, 
+    xticklabels, 
+    title=None, 
+    xlabel=None, 
+    ylabel=None,
+    figsize=(10, 5)
+):
+    x = np.arange(len(xticklabels))  # the label locations
+    width = 0.32  # the width of the bars
+
+    # Create grouped bar chart
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.set_title(title)
+    fig.patch.set_facecolor('white')
+    rects1 = ax.bar(x - width, scalars[0], width, label=scalarlabels[0])
+    rects2 = ax.bar(x, scalars[1], width, label=scalarlabels[1])
+    rects3 = ax.bar(x + width, scalars[2], width, label=scalarlabels[2])
+
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    ax.set_xticks(x)
+    ax.set_xticklabels(xticklabels)
+    ax.set(xlabel=xlabel, ylabel=ylabel)
+    # ax.set_yscale("log")
+    # ax.set_ylim(top =100)
+    ax.legend()
+    autolabel(ax, rects1)
+    autolabel(ax, rects2)
+    autolabel(ax, rects3)
     fig.tight_layout()
     return fig 
 
@@ -251,25 +286,43 @@ def annotate_heatmap(im, data=None, valfmt="{x:.2f}", textcolors=["black", "whit
     return texts
 
 
-def plot_prob_bars(img_title, img_path, labels, probs, topk=5, title=None, figsize=(10, 4)):
-    fig, (ax1, ax2) = plt.subplots(figsize=figsize, ncols=2)
+# Plot softmax probabilities
+def plot_prob_bars(
+    img_title_true,
+    img_title_predicted, 
+    img_path, 
+    labels, 
+    probs, 
+    topk=5, 
+    title=None, 
+    figsize=(12, 4)
+):
+    fig, (ax1, ax2) = plt.subplots(figsize=figsize, ncols=2, gridspec_kw={'width_ratios': [5, 7]})
     fig.patch.set_facecolor('white')
 
     if title is not None:
         fig.suptitle(title)
 
-    ax1.set_title(img_title)
+    ax1.set_title(img_title_true)
     ax1.imshow(plt.imread(img_path))
+    ax1.axis('off') 
 
     # Plot probabilities bar chart
-    ax2.set_title("Top {0} probabilities".format(topk))
-    ax2.barh(np.arange(topk), probs)
+    ax2.set_title(img_title_predicted)
+    rects = ax2.barh(np.arange(topk), probs)
     ax2.set_aspect(0.1)
     ax2.set_yticks(np.arange(topk))
     ax2.set_yticklabels(labels, size='medium')
     ax2.yaxis.tick_right()
     ax2.set_xlim(0, 1.0)
     ax2.invert_yaxis()
+
+    for rect in rects:
+        plt.text(
+            0.1+rect.get_width(), rect.get_y()+0.5*rect.get_height(),
+            "{:.1e}".format(rect.get_width()),
+            ha='center', va='center'
+        )
     fig.tight_layout(rect=[0, 0.02, 1, 0.96])
     return fig
 
@@ -299,7 +352,8 @@ def plot_hyperparameter_over_epochs(
     epoch_max=None, 
     y_min=None,
     y_max=None,
-    y_scale="linear"
+    y_scale="linear",
+    val_metric=False,
 ):
     models_info_list = filter_models_info(
         models_info, 
@@ -318,25 +372,28 @@ def plot_hyperparameter_over_epochs(
     fig.patch.set_facecolor('white')
     fig.suptitle(title, fontsize=14)
 
-    log_metrics=[]
+    log_metrics_val=[]
+    log_metrics_train=[]
     param_values=[]
     for model_info in models_info_list:
-        log_metrics.append(pd.read_csv(model_info["log"])[metric])
+        log_metrics_val.append(pd.read_csv(model_info["log"])["val_"+metric])
+        log_metrics_train.append(pd.read_csv(model_info["log"])[metric])
         param_values.append(float(model_info["hyperparameters"][hyperparameter_compared] if model_info["hyperparameters"][hyperparameter_compared] != "None" else 0))
-    
-    param_values, log_metrics = zip(*sorted(zip(param_values, log_metrics)))
 
-    for i in range(len(log_metrics)):
-        label = (hyperparameter_compared_label + "=" + str(param_values[i]) + " ")
-        ax1.plot(log_metrics[i], label=label)
+    param_values, log_metrics_train, log_metrics_val = zip(*sorted(zip(param_values, log_metrics_train, log_metrics_val)))
+    colors = ["r", "g", "b", "y", "m", "k", "c"]
+    for i in range(len(log_metrics_val)):
+        label = (hyperparameter_compared_label + "=" + str(int(param_values[i])) + " ")
+        ax1.plot(log_metrics_train[i], colors[i]+"-", label=label+" (Train)")
+        ax1.plot(log_metrics_val[i], colors[i]+"--", label=label+" (Validation)")
 
+    subtitle_str = ""
     if subtitle is True:
-        subtitle = ""
         for key, value in model_info["hyperparameters"].items():
             if key is not hyperparameter_compared:
-                subtitle += key + "=" + value + ", " 
+                subtitle_str += key + "=" + value + ", " 
 
-    ax1.set(title=subtitle, xlabel='Epoch', ylabel=metric_label)
+    ax1.set(title=subtitle_str, xlabel='Epoch', ylabel=metric_label)
     ax1.set_xlim([0, epoch_max])
     if y_min is not None:
         ax1.set_ylim(bottom =y_min)
@@ -350,6 +407,79 @@ def plot_hyperparameter_over_epochs(
         #ax1.text(feature_extract_epochs-1, -0.06, str(feature_extract_epochs-1))
     #    ax1.legend()
     
+    ax1.set_xscale("linear")
+    ax1.set_yscale(y_scale)
+
+
+    return fig
+
+
+def plot_lr_over_epochs(
+    models_info, 
+    metric,
+    metric_label,
+    hyperparameter_compared,
+    hyperparameter_compared_label,
+    constant_parameters={},
+    title="", 
+    subtitle=False,
+    figsize=(14, 6), 
+    pretrainedmodel="DenseNet201",
+    feature_extract_epochs=None,
+    epoch_max=None, 
+    y_min=None,
+    y_max=None,
+    y_scale="linear",
+    val_metric=False,
+):
+    models_info_list = filter_models_info(
+        models_info, 
+        models=[pretrainedmodel],
+        parameters=constant_parameters
+    )
+
+    if(len(models_info_list)==0):
+        return  
+
+    fig, ax1 = plt.subplots(
+        nrows=1, 
+        ncols=1, 
+        figsize=figsize
+    )
+    fig.patch.set_facecolor('white')
+    fig.suptitle(title, fontsize=14)
+
+    log_metrics_train=[]
+    param_values=[]
+    for model_info in models_info_list:
+        log_metrics_train.append(pd.read_csv(model_info["log"])[metric])
+        param_values.append(float(model_info["hyperparameters"][hyperparameter_compared] if model_info["hyperparameters"][hyperparameter_compared] != "None" else 0))
+    
+    param_values, log_metrics_train = zip(*sorted(zip(param_values, log_metrics_train)))
+
+    colors = ["r", "g", "b", "y", "m", "k", "c"]
+    for i in range(len(log_metrics_train)):
+        label = (hyperparameter_compared_label + "=" + str(int(param_values[i])) + " ")
+        ax1.plot(log_metrics_train[i], colors[i]+"-", label=label)
+
+    subtitle_str = ""
+    if subtitle is True:
+        for key, value in model_info["hyperparameters"].items():
+            if key is not hyperparameter_compared:
+                subtitle_str += key + "=" + value + ", " 
+
+    ax1.set(title=subtitle_str, xlabel='Epoch', ylabel=metric_label)
+    ax1.set_xlim([0, epoch_max])
+    if y_min is not None:
+        ax1.set_ylim(bottom =y_min)
+    if y_max is not None:
+        ax1.set_ylim(top=y_max)
+    ax1.grid(True)
+    ax1.legend()
+
+    if feature_extract_epochs is not None:
+        ax1.axvline(feature_extract_epochs-1, color='green', label='Start Fine Tuning')
+
     ax1.set_xscale("linear")
     ax1.set_yscale(y_scale)
 
@@ -407,7 +537,6 @@ def plot_model_comparisson(
             scalars1.append(round(metrics[1](y_true, y_pred)*100,2))
 
     scalars0, scalars1, xticklabels = zip(*sorted(zip(scalars0, scalars1, xticklabels)))
-        
     x = np.arange(len(xticklabels))  # the label locations
     width = 0.40  # the width of the bars
 
@@ -416,19 +545,100 @@ def plot_model_comparisson(
     ax.set_title(title)
     fig.patch.set_facecolor('white')
 
-    rects0 = ax.bar(x - width/2, scalars0, width, label=metric_labels[0])
-    rects1 = ax.bar(x + width/2, scalars1, width, label=metric_labels[1])
+    rects0 = ax.barh(x - width/2, scalars0, width, label=metric_labels[0])
+    rects1 = ax.barh(x + width/2, scalars1, width, label=metric_labels[1])
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
-    ax.set_xticks(x)
-    ax.set_xticklabels(xticklabels)
-    ax.set(xlabel="Model", ylabel="Metric Score (%)")
-    ax.set_ylim(bottom =y_min, top=y_max)
+    ax.set_yticks(x)
+    ax.set_yticklabels(xticklabels)
+    ax.set(xlabel="Metric Score (%)", ylabel="Model")
+    #ax.set_ylim(bottom =y_min, top=y_max)
+    ax.invert_yaxis()
     ax.legend()
-    autolabel(ax, rects0)
-    autolabel(ax, rects1)
-    fig.tight_layout()
+    ax.xaxis.grid(True)
+
+    for rect in rects0:
+        plt.text(
+            -2.5+rect.get_width(), rect.get_y()+0.5*rect.get_height(),
+            "{:.2f}".format(rect.get_width()),
+            ha='center', va='center'
+        )
+
+    for rect in rects1:
+        plt.text(
+            -3.0+rect.get_width(), rect.get_y()+0.5*rect.get_height(),
+            "{:.2f}".format(rect.get_width()),
+            ha='center', va='center'
+        )
+        
+    return fig
+
+
+def plot_checkpoint_comparisson(
+    model_info,
+    df_ground_truth,
+    title="", 
+    figsize=(10, 5), 
+    y_min=0,
+    y_max=100,
+    parameter=None
+):
+
+    metrics = [balanced_accuracy_score, accuracy_score]
+    metric_labels = ["BMA (%)", "Accuracy (%)"]
+
+    xticklabels = ["Best BMA Model", "Best Loss Model", "Last Model"]
     
+    scalars0 = []
+    scalars1 = []
+    for checkpoint in ["best_balanced_acc", "best_loss", "latest"]:
+        if model_info["pred_test"] is not None:
+            # read true a prediction categories from validation dataset
+            df = pd.merge(
+                pd.read_csv(os.path.join(model_info["pred_test"], "no_unknown", f"{checkpoint}.csv")),
+                df_ground_truth, 
+                on='image'
+            )
+            y_true = df['category']
+            y_pred = df['pred_category']
+
+            scalars0.append(round(metrics[0](y_true, y_pred)*100,2))
+            scalars1.append(round(metrics[1](y_true, y_pred)*100,2))
+
+    x = np.arange(len(xticklabels))  # the label locations
+    width = 0.40  # the width of the bars
+
+    # Create grouped bar chart
+    fig, ax = plt.subplots(figsize=figsize)
+    ax.set_title(title)
+    fig.patch.set_facecolor('white')
+
+    rects0 = ax.barh(x - width/2, scalars0, width, label=metric_labels[0])
+    rects1 = ax.barh(x + width/2, scalars1, width, label=metric_labels[1])
+
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    ax.set_yticks(x)
+    ax.set_yticklabels(xticklabels)
+    ax.set(xlabel="Metric Score (%)", ylabel="Model")
+    #ax.set_ylim(bottom =y_min, top=y_max)
+    ax.invert_yaxis()
+    ax.legend()
+    ax.xaxis.grid(True)
+
+    for rect in rects0:
+        plt.text(
+            -2.5+rect.get_width(), rect.get_y()+0.5*rect.get_height(),
+            "{:.2f}".format(rect.get_width()),
+            ha='center', va='center'
+        )
+
+    for rect in rects1:
+        plt.text(
+            -3.0+rect.get_width(), rect.get_y()+0.5*rect.get_height(),
+            "{:.2f}".format(rect.get_width()),
+            ha='center', va='center'
+        )
+        
     return fig
 
 
@@ -450,15 +660,15 @@ def plot_model_comparisson_balanced_acc(
         models=models,
         parameters=constant_parameters
     )
-
+    print(models_info_list)
     xticklabels = []
     scalars0 = []
     scalars1 = []
     scalars2 = []
     for model_info in models_info_list:
-        if model_info["pred_test_0"] is not None:
+        if model_info["pred_test"] is not None:
             # read true a prediction categories from validation dataset
-            df_pred = pd.read_csv(os.path.join(model_info["pred_test_0"], "no_unknown", "best_balanced_acc.csv"))
+            df_pred = pd.read_csv(os.path.join(model_info["pred_test"], "no_unknown", "best_balanced_acc.csv"))
 
             # compute metric and associate it with model
             if parameter is None:
@@ -491,7 +701,7 @@ def plot_model_comparisson_balanced_acc(
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_xticks(x)
     ax.set_xticklabels(xticklabels)
-    ax.set(xlabel="", ylabel="Balanced Accuracy (%)")
+    ax.set(xlabel="", ylabel="BMA (%)")
     ax.set_ylim(bottom =y_min, top=y_max)
     ax.legend()
     autolabel(ax, rects0)
@@ -509,25 +719,32 @@ def plot_model_parameter_comparisson(
     parameter_label="", 
     metric_label="",
     title="", 
-    figsize=(7, 5)
+    figsize=(7, 5),
+    x_int_ticks=False
 ): 
     parameter = []
     scalars_train = []
+    scalars_train_a = []
     scalars_val = []
+    scalars_val_a = []
     labels = []
     for model_info in models_info:
         # compute metric and associate it with model
         parameter.append(model_parameters[model_info["model"]])
         scalars_train.append(round(get_log_metric(model_info["log"], metric="balanced_accuracy")*100,2))
-        scalars_val.append(round(get_log_metric(model_info["log"])*100,2))
+        scalars_train_a.append(round(get_log_metric(model_info["log"], metric="accuracy")*100,2))
+        scalars_val.append(round(get_log_metric(model_info["log"], metric="val_balanced_accuracy")*100,2))
+        scalars_val_a.append(round(get_log_metric(model_info["log"], metric="val_accuracy")*100,2))
         labels.append(model_info["model"])
             
     fig, ax = plt.subplots(figsize=figsize)
 
     parameter, scalars_val, scalars_train, labels = zip(*sorted(zip(parameter, scalars_val, scalars_train, labels)))
 
-    ax.plot(parameter, scalars_train, '.b-', label="Train")
-    ax.plot(parameter, scalars_val, '.r-', label="Validation")
+    ax.plot(parameter, scalars_train, '.b-', label="$BMA_{train}$")
+    ax.plot(parameter, scalars_train_a, '.b--', label="$A_{train}$")
+    ax.plot(parameter, scalars_val, '.r-', label="$BMA_{validation}$")
+    ax.plot(parameter, scalars_val_a, '.r--', label="$A_{validation}$")
     ax.set_title(title)
     ax.set(xlabel=parameter_label, ylabel=metric_label)
 
@@ -538,9 +755,14 @@ def plot_model_parameter_comparisson(
     #ax.set_yscale("linear")
 
     for i in range(len(labels)):
+        ax.annotate(labels[i], (parameter[i], scalars_val_a[i]+0.1))
         ax.annotate(labels[i], (parameter[i], scalars_val[i]+0.1))
+        ax.annotate(labels[i], (parameter[i], scalars_train_a[i]+0.1))
         ax.annotate(labels[i], (parameter[i], scalars_train[i]+0.1))
-
+    
+    if x_int_ticks is True:
+        ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    
     fig.tight_layout()
 
     return fig
@@ -549,14 +771,14 @@ def plot_model_parameter_comparisson(
 def plot_hyperparameter_comparisson(
     models_info,
     hyperparameter,
-    train_metric=["balanced_accuracy"],
-    train_label=["Train"],
-    val_metric=["val_balanced_accuracy"],
-    val_label=["Validation"],
-    test_metric=[],
-    test_label=["Test"],
+    train_metric=["balanced_accuracy", "accuracy"],
+    train_label=["Train BMA", "Train Accuracy"],
+    val_metric=["val_balanced_accuracy", "val_accuracy"],
+    val_label=["Validation BMA", "Validation Accuracy"],
+    test_metric=[balanced_accuracy_score, accuracy_score],
+    test_label=["Test BMA", "Test Accuracy"],
     parameter_label="", 
-    metric_label=["Balanced Accuracy(%)"],
+    metric_label="Metric Score(%)",
     title="", 
     figsize=(7, 5),
     x_scale="linear",
@@ -568,7 +790,7 @@ def plot_hyperparameter_comparisson(
     parameter = []
     scalars_train = [[] for i in range(len(train_metric))]
     scalars_val = [[] for i in range(len(val_metric))]
-    scalars_test = [[] for i in range(len(test_metric))]
+    scalars_test = [[] for i in range(len(train_metric))]
     for model_info in models_info:
         param = 0.0 if model_info["hyperparameters"][hyperparameter]=="None" else float(model_info["hyperparameters"][hyperparameter]) 
         # compute metric and associate it with model
@@ -585,47 +807,36 @@ def plot_hyperparameter_comparisson(
                 scalars_test[i].append(0)
         
     fig, ax = plt.subplots(figsize=figsize)
-    print(parameter)
-    print(scalars_val[0])
-    print(scalars_val[1])
-    print(scalars_train[0])
-    print(scalars_train[1])
-    print(scalars_test[0])
-    print(scalars_test[1])
-    parameter, scalars_val[0], scalars_val[1], scalars_train[0], scalars_train[1], scalars_test[0], scalars_test[1] = zip(*sorted(zip(
+    parameter, scalars_val[0], scalars_train[0], scalars_test[0] = zip(*sorted(zip(
         parameter, 
         scalars_val[0],
-        scalars_val[1], 
         scalars_train[0],
-        scalars_train[1], 
         scalars_test[0],
-        scalars_test[1]
     )))
     parameter=xticklabelfunction(parameter)
 
     if bar_plot is True:
         width = 0.28  # the width of the bars
         x = np.arange(len(parameter))  # the label locations
-        rects0 = ax.bar(x - width/ 2 if test_metric is None else x - width, scalars_train, width, label="Train")
+        rects0 = ax.bar(x - width/ 2 if test_metric is None else x - width, scalars_train[0], width, label="Train")
         autolabel(ax, rects0)
-        rects1 = ax.bar(x + width/ 2 if test_metric is None else x , scalars_val, width, label="Validation")
+        rects1 = ax.bar(x + width/ 2 if test_metric is None else x , scalars_val[0], width, label="Validation")
         autolabel(ax, rects1)
-        if df_ground_truth is not None and test_metric is not None:
-            rects2 = ax.bar(x + width, scalars_test, width, label="Test")
+        if df_ground_truth is not None and len(test_metric) > 0:
+            rects2 = ax.bar(x + width, scalars_test[0], width, label="Test")
             autolabel(ax, rects2)
 
         # Add some text for labels, title and custom x-axis tick labels, etc.
         ax.set_xticks(x)
         ax.set_xticklabels(parameter)
     else:
-        tick_styles = ["-", ":", "--"]
+        colors = ["r", "b", "g", "y", "m", "k", "c"]
+
         for i in range(len(train_metric)):
-            print(parameter)
-            print(scalars_train[i])
-            ax.plot(parameter, scalars_train[i], '.b'+tick_styles[i], label=train_label[i])
-            ax.plot(parameter, scalars_val[i], '.r'+tick_styles[i], label=val_label[i])
+            ax.plot(parameter, scalars_train[i], '.b-', label=train_label[i])
+            ax.plot(parameter, scalars_val[i], '.r-', label=val_label[i])
             if df_ground_truth is not None and test_metric is not None:
-                ax.plot(parameter, scalars_test[i], '.g'+tick_styles[i], label=test_label[i])
+                ax.plot(parameter, scalars_test[i], '.'+colors[i]+":", label=test_label[i])
 
         ax.set_xscale(x_scale)
         if x_int_ticks is True:
@@ -651,7 +862,7 @@ def plot_hyperparameter_comparisson_mult_metrics(
     test_metric=[],
     test_label=["Test"],
     parameter_label="", 
-    metric_label=["Balanced Accuracy(%)"],
+    metric_label="BMA(%)",
     title="", 
     figsize=(7, 5),
     x_scale="linear",
@@ -684,8 +895,6 @@ def plot_hyperparameter_comparisson_mult_metrics(
 
     tick_styles = ["-", "+"]
     for i in range(len(train_metric)):
-        print(parameter)
-        print(scalars_train[i])
         ax.plot(parameter, scalars_train[i], '.b'+tick_styles[i], label=train_label[i])
         ax.plot(parameter, scalars_val[i], '.r'+tick_styles[i], label=val_label[i])
         if df_ground_truth is not None and test_metric is not None:

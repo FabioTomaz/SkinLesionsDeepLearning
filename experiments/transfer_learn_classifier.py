@@ -113,7 +113,7 @@ class TransferLearnClassifier(LesionClassifier):
         checkpoints = super()._create_checkpoint_callbacks(model_subdir)
 
         # Reduce learning rate when the validation loss has stopped improving.
-        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=8, min_lr=1e-7, verbose=1)
+        reduce_lr = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=self.parameters.patience, min_lr=1e-7, verbose=1)
 
         # Stop training when the validation loss has stopped improving.
         early_stop = EarlyStopping(monitor='val_loss', patience=16, verbose=1)

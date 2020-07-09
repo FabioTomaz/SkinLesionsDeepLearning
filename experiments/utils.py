@@ -33,6 +33,7 @@ def formated_hyperparameter_str(
     balanced,
     offline_data_augmentation_group=1,
     online_data_augmentation_group=1,
+    patience=8
 ):
     felr_str = format(felr, 'f')
     ftlr_str = format(ftlr, 'f')
@@ -40,7 +41,7 @@ def formated_hyperparameter_str(
     l2_str = "None" if lmda == None else format(lmda, 'f')
     balanced_int = 1 if balanced is True else 0
     data_augmentation_group = str(offline_data_augmentation_group) + str(online_data_augmentation_group)
-    return f'balanced_{balanced_int}-samples_{samples}-feepochs_{feepochs}-ftepochs_{ftepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}-dggroup_{data_augmentation_group}'
+    return f'balanced_{balanced_int}-samples_{samples}-feepochs_{feepochs}-ftepochs_{ftepochs}-felr_{felr_str}-ftlr_{ftlr_str}-lambda_{l2_str}-dropout_{dropout_str}-batch_{batch_size}-dggroup_{data_augmentation_group}-patience_{patience}'
 
 
 def formated_hyperparameters(parameters):
@@ -56,6 +57,7 @@ def formated_hyperparameters(parameters):
         parameters.balanced,
         parameters.offline_dg_group,
         parameters.online_dg_group,
+        parameters.patience
     )
 
 
@@ -271,7 +273,7 @@ def ensemble_predictions_k_fold(
     postfix='best_balanced_acc',
     k_folds=5
 ):
-    hyperparameter_str = formated_hyperparameter_str(parameters)
+    hyperparameter_str = formated_hyperparameters(parameters)
     """ Ensemble predictions of different models. """
     # Load models' predictions
     df_dict = {
@@ -314,7 +316,7 @@ def ensemble_predictions(
 ):
     """ Ensemble predictions of different models. """
 
-    hyperparameter_str = formated_hyperparameter_str(parameters)
+    hyperparameter_str = formated_hyperparameters(parameters)
 
     # Load models' predictions
     df_dict = {

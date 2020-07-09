@@ -15,6 +15,7 @@ def load_isic_training_data(image_folder, ground_truth_file, test=False):
     df_ground_truth['path'] = df_ground_truth.apply(lambda row : os.path.join(image_folder, row['image']+'.jpg'), axis=1)
     df_ground_truth['category'] = np.argmax(np.array(df_ground_truth.iloc[:,1:10]), axis=1)
 
+    res=df_ground_truth
     if test:
         res = df_ground_truth[['image','category']]
     else:
