@@ -29,6 +29,7 @@ ModelParameters = NamedTuple('ModelParameters', [
     ('ft_epochs', int),
     ('felr', float),
     ('ftlr', float),
+    ('patience', int),
     ('lmbda', float),
     ('dropout', float),
     ('max_queue_size', int),
@@ -339,6 +340,7 @@ if __name__ == '__main__':
     parser.add_argument('--batchsize', type=int, help='Batch size (default: %(default)s)', default=32)
     parser.add_argument('--felr', type=float, help='Feature extractor learning rate (default: %(default)s)', default=1e-3)
     parser.add_argument('--ftlr', type=float, help='Fine tuning learning rate (default: %(default)s)', default=1e-5)
+    parser.add_argument('--patience', type=int, help='Patience (default: %(default)s)', default=8)
     parser.add_argument('--dropout', type=float, help='Dropout rate (default: %(default)s)', default=None)    
     parser.add_argument('--l2', type=float, help='l2 regularization parameter (default: %(default)s)', default=None)    
     parser.add_argument('--maxqueuesize', type=int, help='Maximum size for the generator queue (default: %(default)s)', default=10)
@@ -413,6 +415,7 @@ if __name__ == '__main__':
         ft_epochs=args.ftepochs,
         felr = args.felr,
         ftlr = args.ftlr,        
+        patience = args.patience,
         lmbda=args.l2,
         max_queue_size = args.maxqueuesize,
         offline_dg_group=offline_dg_group,
@@ -421,6 +424,8 @@ if __name__ == '__main__':
         balanced=all(round(value, 2) == 1 for value in class_weight_dict.values()),
         unknown_train=unknown_train
     )
+
+    print("PARAMETERS>>>>>>>>>>>>"+str(parameters))
 
     # Train models by Transfer Learning
     model_param_map = get_transfer_model_param_map() 

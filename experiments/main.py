@@ -27,6 +27,7 @@ ModelParameters = NamedTuple('ModelParameters', [
     ('batch_size', int),
     ('fe_epochs', int),
     ('ft_epochs', int),
+    ('patience', int),
     ('felr', float),
     ('ftlr', float),
     ('lmbda', float),
@@ -333,6 +334,7 @@ if __name__ == '__main__':
     parser.add_argument('--testfolder', metavar='DIR', help='path to test folder', default=None)
     parser.add_argument('--kfolds', type=int, help='Number of folds for k-fold cross validation (default: %(default)s)', default=0)
     parser.add_argument('--batchsize', type=int, help='Batch size (default: %(default)s)', default=32)
+    parser.add_argument('--patience', type=int, help='Patience (default: %(default)s)', default=8)
     parser.add_argument('--felr', type=float, help='Feature extractor learning rate (default: %(default)s)', default=1e-3)
     parser.add_argument('--ftlr', type=float, help='Fine tuning learning rate (default: %(default)s)', default=1e-5)
     parser.add_argument('--dropout', type=float, help='Dropout rate (default: %(default)s)', default=None)    
@@ -403,6 +405,7 @@ if __name__ == '__main__':
         fe_epochs=args.feepochs,
         ft_epochs=args.ftepochs,
         felr = args.felr,
+        patience = args.patience,
         ftlr = args.ftlr,        
         lmbda=args.l2,
         max_queue_size = args.maxqueuesize,
