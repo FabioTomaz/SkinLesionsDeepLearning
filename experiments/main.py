@@ -21,15 +21,15 @@ import pandas as pd
 from odin import compute_out_of_distribution_score
 
 
-UNKNOWN_THRESHOLDS=[0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+UNKNOWN_THRESHOLDS=[0.0, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
 
 ModelParameters = NamedTuple('ModelParameters', [
     ('batch_size', int),
     ('fe_epochs', int),
     ('ft_epochs', int),
-    ('patience', int),
     ('felr', float),
     ('ftlr', float),
+    ('patience', int),
     ('lmbda', float),
     ('dropout', float),
     ('max_queue_size', int),
@@ -81,7 +81,8 @@ def train(
     class_weight_dict, 
     model_folder,
     history_folder,
-    parameters
+    parameters,
+    df_val=None
 ):    
     for model_param in base_model_params:
         if k_folds > 0:
@@ -106,7 +107,8 @@ def train(
                 k_split=k_split+1
         else:
             # Train/Validation split
-            df_train, df_val = train_validation_split(df_ground_truth)
+            df_train = df_ground_truth #, df_val = train_validation_split(df_ground_truth)
+            
             train_transfer_learning(
                 model_param, 
                 df_train, 
@@ -167,7 +169,7 @@ def handle_unknown(
                 model_params.class_name,
                 prediction_label=os.path.join(
                     prediction_label,
-                    f"unknown_{unknown_thresh}" if unknown_thresh != 1.0 else "no_unknown"
+                    f"unknown_{unknown_thresh}" if unknown_thresh > 0.0 else "no_unknown"
                 ),
                 pred_result_folder_test=pred_result_folder_test,
                 parameters=parameters,
@@ -228,6 +230,7 @@ def predidct_test(
     df_test.drop(columns=['path']).to_csv(os.path.join(pred_result_folder_test, 'ISIC_2019_Test.csv'), index=False)
     
     hyperparameter_str = formated_hyperparameters(parameters)
+    print(hyperparameter_str)
 
     model_kfold_folders=range(k_folds)
     if k_folds == 0:
@@ -276,7 +279,8 @@ def predidct_test(
                     df_softmax,
                     df_test,
                     unknown_method,
-                    prediction_label=str(k_fold)
+                    prediction_label=str(k_fold),
+                    pred_result_folder_test=pred_result_folder_test
                 )                
 
                 #del model
@@ -334,9 +338,9 @@ if __name__ == '__main__':
     parser.add_argument('--testfolder', metavar='DIR', help='path to test folder', default=None)
     parser.add_argument('--kfolds', type=int, help='Number of folds for k-fold cross validation (default: %(default)s)', default=0)
     parser.add_argument('--batchsize', type=int, help='Batch size (default: %(default)s)', default=32)
-    parser.add_argument('--patience', type=int, help='Patience (default: %(default)s)', default=8)
     parser.add_argument('--felr', type=float, help='Feature extractor learning rate (default: %(default)s)', default=1e-3)
     parser.add_argument('--ftlr', type=float, help='Fine tuning learning rate (default: %(default)s)', default=1e-5)
+    parser.add_argument('--patience', type=int, help='Patience (default: %(default)s)', default=8)
     parser.add_argument('--dropout', type=float, help='Dropout rate (default: %(default)s)', default=None)    
     parser.add_argument('--l2', type=float, help='l2 regularization parameter (default: %(default)s)', default=None)    
     parser.add_argument('--maxqueuesize', type=int, help='Maximum size for the generator queue (default: %(default)s)', default=10)
@@ -383,12 +387,17 @@ if __name__ == '__main__':
 
     # ISIC data
     training_image_folder = os.path.join(data_folder, 'ISIC_2019_Training_Input')
+    validation_image_folder = os.path.join(data_folder, 'ISIC_2019_Validation_Input')
+
     test_image_folder = args.testfolder if args.testfolder is not None else os.path.join(data_folder, 'ISIC_2019_Test_Input')
 
     # Ground truth
     ground_truth_file = os.path.join(data_folder, 'ISIC_2019_Training_GroundTruth.csv')
     df_ground_truth, known_category_names, unknown_category_name = load_isic_training_data(training_image_folder, ground_truth_file)
     class_weight_dict = compute_class_weight_dict(df_ground_truth)
+    
+    ground_truth_file = os.path.join(data_folder, 'ISIC_2019_Validation_GroundTruth.csv')
+    df_val, _, _ = load_isic_training_data(validation_image_folder, ground_truth_file)
 
     offline_dg_group = 1
     unknown_train=False
@@ -405,8 +414,8 @@ if __name__ == '__main__':
         fe_epochs=args.feepochs,
         ft_epochs=args.ftepochs,
         felr = args.felr,
-        patience = args.patience,
         ftlr = args.ftlr,        
+        patience = args.patience,
         lmbda=args.l2,
         max_queue_size = args.maxqueuesize,
         offline_dg_group=offline_dg_group,
@@ -415,6 +424,8 @@ if __name__ == '__main__':
         balanced=all(round(value, 2) == 1 for value in class_weight_dict.values()),
         unknown_train=unknown_train
     )
+
+    print("PARAMETERS>>>>>>>>>>>>"+str(parameters))
 
     # Train models by Transfer Learning
     model_param_map = get_transfer_model_param_map() 
@@ -434,7 +445,8 @@ if __name__ == '__main__':
             class_weight_dict, 
             args.modelfolder,
             args.historyfolder,
-            parameters
+            parameters,
+            df_val=df_val
         )
 
     # Predict Test Data

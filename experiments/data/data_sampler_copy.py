@@ -22,7 +22,7 @@ def load_image(filename, target_size=None, center_crop=True):
 
     def _resize(img, target_size):
         assert target_size[0] == target_size[1]
-        return img.resize(target_size, PIL.Image.NEAREST)
+        return img.resize(target_size, PIL.Image.BICUBIC)
 
     img = PIL.Image.open(filename).convert('RGB')
     if center_crop:
@@ -52,7 +52,7 @@ def augment(source_dataframe, operations, n, img_size):
                     augmented_image = operation.perform_operation([augmented_image])[0]
 
             row['img'] = augmented_image
-            row['image'] = f"{row['image']}_{random.randrange(100000)}"
+            row['image'] = f"{row['image']}_{random.randrange(1000000)}"
 
             source_dataframe = source_dataframe.append(row)
             
@@ -101,6 +101,7 @@ def process(
     target_img_size, 
     training_samples, 
     class_balance,
+    min_samples,
     data_augmentation_group,
     unknown_images_path=None,
     unknown_train=False
@@ -111,12 +112,22 @@ def process(
     else:
         df_ground_truth, category_names, unknown_category = load_isic_training_data(images_path, descriptions_filename)
 
-    df_train = df_ground_truth
-    # if test_folder is None:
-    #     df_train, df_test = train_validation_split(df_ground_truth)
-    # else:
-    #     df_train = df_ground_truth
-    #     df_test = get_dataframe_from_img_folder(test_folder)
+    if test_folder is None:
+        df_train, df_test = train_validation_split(df_ground_truth, test_size=0.1)
+        df_train, df_val = train_validation_split(df_train, test_size=0.1)
+    else:
+        df_train = df_ground_truth
+        df_test = get_dataframe_from_img_folder(test_folder)
+
+    if unknown_images_path and unknown_train is not True:
+        df_out_dist = get_dataframe_from_img_folder(unknown_images_path, has_path_col=True)
+        for name in category_names:
+            df_out_dist[name] = 0.0
+        df_out_dist[unknown_category] = 1.0
+        df_out_dist["category"] = 8
+        # Change the order of columns
+        df_out_dist = df_out_dist[df_train.columns.values]
+        df_test = df_test.append(df_out_dist)
 
 
     # Process train set + oversample/undersample class samples
@@ -129,6 +140,11 @@ def process(
         if (training_samples is None):
             training_samples=total_sample_count
         samples_per_category = [floor(training_samples/len(count_per_category)) for i in count_per_category]
+    elif min_samples:
+        for i, _ in count_per_category.most_common():
+            # Oversample/undersample
+            count_ratio = float(count_per_category[i])/total_sample_count
+            samples_per_category[i] = floor(count_ratio*training_samples)
     else:
         for i, _ in count_per_category.most_common():
             if (training_samples is None):
@@ -152,29 +168,18 @@ def process(
         img_size = target_img_size
     )
 
-    df_train, df_test = train_validation_split(result)
+    # Process test set
+    df_test = df_test.sample(frac=1).reset_index(drop=True)
+    df_test['img'] = df_test.apply(lambda row: load_image(row.path, target_size=target_img_size), axis=1)
+    # Process val set
+    df_val = df_val.sample(frac=1).reset_index(drop=True)
+    df_val['img'] = df_val.apply(lambda row: load_image(row.path, target_size=target_img_size), axis=1)
 
     # Removing unnecessary path column
-    del df_train['path']
+    del result['path']
     del df_test['path']
 
-    if unknown_images_path and unknown_train is not True:
-        df_out_dist = get_dataframe_from_img_folder(unknown_images_path, has_path_col=True)
-        for name in category_names:
-            df_out_dist[name] = 0.0
-        df_out_dist[unknown_category] = 1.0
-        df_out_dist["category"] = 8
-        # Change the order of columns
-        df_out_dist["img"] = df_out_dist.apply(lambda row: load_image(row.path, target_size=target_img_size), axis=1)
-        df_out_dist = df_out_dist[df_train.columns.values]
-        df_test = df_test.append(df_out_dist)
-
-    # Process test set
-    # df_test = df_test.sample(frac=1).reset_index(drop=True)
-    # df_test['img'] = df_test.apply(lambda row: load_image(row.path, target_size=target_img_size), axis=1)
-
-
-    return df_train, df_test
+    return result, df_val, df_test
 
 
 def save(df, images_path, descriptions_path):
@@ -211,17 +216,19 @@ if __name__ == '__main__':
     parser.add_argument('--target-size', type=int, default=224)
     parser.add_argument('--training-samples', type=int, default=None)
     parser.add_argument('--class-balance', dest='classbalance', action='store_true', default=False)
+    parser.add_argument('--min-samples', type=int, default=None)
     parser.add_argument('--data-augmentation-group', dest='dggroup', default=1, type=int)
     parser.add_argument('--output', default="./isic2019/sampled", required=True)
     args = parser.parse_args()
 
-    df_train, df_test = process(
+    df_train, df_val, df_test = process(
         args.images, 
         args.test,
         args.descriptions, 
         (args.target_size, args.target_size), 
         args.training_samples, 
         args.classbalance,
+        args.min_samples,
         args.dggroup,
         unknown_images_path=args.unknown_images,
         unknown_train=args.unknown_train
@@ -231,6 +238,12 @@ if __name__ == '__main__':
         df_train, 
         os.path.join(args.output, 'ISIC_2019_Training_Input'), 
         os.path.join(args.output, 'ISIC_2019_Training_GroundTruth.csv')
+    )
+
+    save(
+        df_val, 
+        os.path.join(args.output, 'ISIC_2019_Validation_Input'), 
+        os.path.join(args.output, 'ISIC_2019_Validation_GroundTruth.csv')
     )
 
     if args.unknown_images is not None:
@@ -252,8 +265,9 @@ if __name__ == '__main__':
     metadata = {
         "path": args.output,
         "target_size": args.target_size,
-        "training_samples": args.training_samples,
+        "training_samples": df_train.shape[0],
         "class_balance": args.classbalance,
+        "min_samples": args.min_samples,
         "images_location": args.images,
         "descriptions_location": args.descriptions, 
         "unknown_images_location": args.unknown_images,
