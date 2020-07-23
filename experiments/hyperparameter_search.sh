@@ -2,12 +2,12 @@
 set -euxo pipefail
 
 
-# BATCH SIZE
+# #BATCH SIZE
 MODELS=("DenseNet201" "DenseNet201" "DenseNet201")
-BATCH=(8 16 32)
-FEEPOCHS=(0 0 0)
-FELR=(1e-4 1e-4 1e-4)
-FTLR=(1e-4 1e-4 1e-4)
+BATCH=(4 8 16 32)
+FEEPOCHS=(0 0 0 0)
+FELR=(1e-4 1e-4 1e-4 1e-4)
+FTLR=(1e-4 1e-4 1e-4 1e-4)
 
 for i in "${!MODELS[@]}"; do 
     echo "Model: ${MODELS[$i]}\n" >> output.txt
@@ -27,10 +27,10 @@ for i in "${!MODELS[@]}"; do
 done
 
 
-# WEIGHT INITIALIZATION EPOCHS
+# # WEIGHT INITIALIZATION EPOCHS
 MODELS=("DenseNet201" "DenseNet201" "DenseNet201" "DenseNet201" "DenseNet201")
 BATCH=(16 16 16 16 16)
-FEEPOCHS=(0 1 2 3 4)
+FEEPOCHS=(0 1 2 4 6)
 FELR=(1e-4 1e-4 1e-4 1e-4 1e-4)
 FTLR=(1e-4 1e-4 1e-4 1e-4 1e-4)
 
@@ -51,12 +51,12 @@ for i in "${!MODELS[@]}"; do
         --ftlr "${FTLR[i]}"
 done
 
-# WEIGHT INITIALIZATION LR
-MODELS=("DenseNet201" "DenseNet201")
-BATCH=(16 16)
-FEEPOCHS=(2 2)
-FELR=(1e-3 1e-5)
-FTLR=(1e-4 1e-4)
+# # WEIGHT INITIALIZATION LR
+MODELS=("DenseNet201" "DenseNet201" "DenseNet201")
+BATCH=(16 16 16)
+FEEPOCHS=(2 2 2)
+FELR=(1e-3 1e-4 1e-5)
+FTLR=(1e-4 1e-4 1e-4)
 
 for i in "${!MODELS[@]}"; do 
     echo "Model: ${MODELS[$i]}\n" >> output.txt
@@ -75,12 +75,12 @@ for i in "${!MODELS[@]}"; do
         --ftlr "${FTLR[i]}"
 done
 
-# FINE TUNING LR
+# # FINE TUNING LR
 MODELS=("DenseNet201")
-BATCH=(16 16 16)
-FEEPOCHS=(2 2 2)
-FELR=(1e-3 1e-3 1e-3)
-FTLR=(1e-6 1e-5 1e-6)
+BATCH=(16 16 16 16)
+FEEPOCHS=(2 2 2 2)
+FELR=(1e-3 1e-3 1e-3 1e-3)
+FTLR=(1e-4 1e-5 1e-4 1e-3)
 
 for i in "${!MODELS[@]}"; do 
    echo "Model: ${MODELS[$i]}\n" >> output.txt
@@ -99,13 +99,13 @@ for i in "${!MODELS[@]}"; do
        --ftlr "${FTLR[i]}"
 done
 
-# DROPOUT RATE
-MODELS=("DenseNet201")
-BATCH=(16 16 16 16)
-FEEPOCHS=(2 2 2 2)
-FELR=(1e-3 1e-3 1e-3 1e-3)
-FTLR=(1e-4 1e-4 1e-4 1e-4)
-DROPOUT=(0.5 0.5 0.4 0.5)
+# # DROPOUT RATE
+MODELS=("DenseNet201" "DenseNet201" "DenseNet201" "DenseNet201" "DenseNet201")
+BATCH=(16 16 16 16 16)
+FEEPOCHS=(2 2 2 2 2)
+FELR=(1e-3 1e-3 1e-3 1e-3 1e-3)
+FTLR=(1e-4 1e-4 1e-4 1e-4 1e-4)
+DROPOUT=(0.1 0.2 0.3 0.4 0.5)
 
 
 for i in "${!MODELS[@]}"; do 
@@ -128,7 +128,7 @@ for i in "${!MODELS[@]}"; do
 done
 
 # L2
-MODELS=("DenseNet201" "DenseNet201" "DenseNet201" "DenseNet201" "DenseNet201")
+MODELS=("DenseNet201" "DenseNet201" "DenseNet201" "DenseNet201" "DenseNet201" "DenseNet201")
 BATCH=(16 16 16 16 16 16)
 FEEPOCHS=(2 2 2 2 2 2)
 FELR=(1e-3 1e-3 1e-3 1e-3 1e-3 1e-3)
@@ -151,6 +151,27 @@ for i in "${!L2[@]}"; do
         --feepochs "${FEEPOCHS[i]}" \
         --felr "${FELR[i]}" \
         --ftlr "${FTLR[i]}" \
-        --l2 "${L2[i]}" \
-        --online-data-augmentation-group 1
+        --l2 "${L2[i]}" 
+done
+
+
+# PATIENCE
+MODELS=("DenseNet201" "DenseNet201" "DenseNet201" "DenseNet201" "DenseNet201" "DenseNet201")
+BATCH=(16 16 16 16 16 16)
+FEEPOCHS=(2 2 2 2 2 2)
+FELR=(1e-3 1e-3 1e-3 1e-3 1e-3 1e-3)
+FTLR=(1e-4 1e-4 1e-4 1e-4 1e-4 1e-4)
+PATIENCE=(2 4 8 12 14 16)
+
+for i in "${!PATIENCE[@]}"; do 
+
+    python3 main.py /home/fmts/msc/experiments/data/isic2019/sampled_unbalanced_5000/ \
+        --training \
+        --batchsize "${BATCH[i]}" \
+        --maxqueuesize 10 \
+        --model "${MODELS[i]}" \
+        --feepochs "${FEEPOCHS[i]}" \
+        --felr "${FELR[i]}" \
+        --ftlr "${FTLR[i]}" \
+        --patience "${PATIENCE[i]}" 
 done
