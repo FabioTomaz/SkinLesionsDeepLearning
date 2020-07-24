@@ -1,0 +1,210 @@
+%!TEX encoding = UTF-8 Unicode
+
+%% Thesis cover pages
+%%
+%% Based on the example.tex file provided by Tomás Oliveira e Silva
+%%
+%% Modified by João Paulo Barraca <jpbarraca@ua.pt>
+%% Modified by Filipe Manco <filipe.manco@ua.pt>
+
+\documentclass[11pt,twoside,a4paper]{report}
+
+%%% This file is a template for the cover of your
+%%%  thesis.
+%%% Lines like this one, starting with %%% , are
+%%%  instructions. Search them to know where and
+%%%  how to edit this file. After editing the
+%%%  document you can delete them.
+%%% Items marked with OPTIONAL can be removed.
+%%% Most of the lines you will have to change
+%%%  already have examples to help you understand.
+%%% The complete list of options and commands can
+%%%  be found in uaThesisTemplate.sty
+
+
+%%% Select your area of study and department from
+%%%  the following lists and replace them in the
+%%%  \usepackage declaration ([area,department]).
+%%%
+%%% | area        |   | department |
+%%% ---------------   --------------
+%%% | arts        |   | dao        |
+%%% | sciences    |   | bio        |
+%%% | education   |   | csjp       |
+%%% | economy     |   | ca         |
+%%% | engineering |   | egi        |
+%%% | humanities  |   | de         |
+%%% | health      |   | deti       |
+%%% |             |   | mac        |
+%%% |             |   | civil      |
+%%% |             |   | mec        |
+%%% |             |   | fis        |
+%%% |             |   | dlc        |
+%%% |             |   | mat        |
+%%% |             |   | dq         |
+%%% |             |   | cs         |
+%%% ---------------   --------------
+%% Import the UA thesis template
+\usepackage[engineering,deti]{uaThesisTemplate}
+
+
+%% Optional packages for utf8 encoding and T1 fonts
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+
+%% For prettier pages
+\usepackage{lmodern}
+
+%% We will use english and portuguese
+\usepackage[english,portuguese]{babel}
+
+\usepackage{xspace}% used by \sigla
+
+%%% This package is only used to create a dummy
+%%%  text for the abstract. You can remove the
+%%%  following line in the final document.
+\usepackage{blindtext}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%       DEFINE THESIS COVER FIELDS
+%%                  START
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%% Edit thesis year
+%% Thesis Year
+\ThesisYear{2020}
+
+
+%%% Uncomment one of the following
+%\DocumentTypeThesis
+\DocumentTypeDissertation
+
+%%% Edit author's name
+%% Author's full name
+\Author{Fábio\\Santos}
+
+%%% Edit thesis title in Portuguese
+%% Thesis Mandatory Title in Portuguese
+\Title{\selectlanguage{portuguese}Aprendizagem profunda para o diagnóstico de múltiplas classes de lesões de pele}
+
+%%% OPTIONAL: you can write your thesis title in
+%%%  other languages. You can repeat the following
+%%%  line as many times as you want, or remove it
+%%%  if you only want the portuguese title.
+%% Optional Titles in additional languages.
+\Title{\selectlanguage{english}Deep learning for multi-class skin lesion diagnosis}
+
+%%% OPTIONAL: add a quotation if you like.
+%% Optional Quotation
+\Quote{\selectlanguage{english}Our intelligence is what makes us human, and AI is an extension of that quality}{Yann LeCun}
+
+%%% Edit your supervisor's information.
+%%%
+%%% \Supervisor{name}{category}
+%%%
+%%% name   : Supervisor's name
+%%% categoy: One of the following list
+%%%
+%%% | category               |
+%%% --------------------------
+%%% | catedrático            |
+%%% | catedrático convidado  |
+%%% | associado c/ agregação |
+%%% | associado              |
+%%% | auxiliar               |
+%%% | auxiliar convidado     |
+%%% --------------------------
+%% Supervisor information
+\Supervisor{Filipe Miguel Teixeira Pereira da Silva}{auxiliar}
+
+%%% OPTIONAL: you can add a second supervisor.
+%%%
+%%% \SecondSupervisor{name}{category}
+%%%  {[preposition: (at, in, no, da)] department}
+%%%  {[preposition: (at, in, do, na)] school}
+%%%
+%%% name      : See above.
+%%% category  : See above.
+%%% department: Can be a department, faculty or
+%%%             other; Choose the preposition
+%%%             accordingly.
+%%% school    : University/Scholl name; Choose the
+%%%             preposition accordingly.
+%% Optional SecondSuperviser information
+\SecondSupervisor{Pétia Georgieva}{auxiliar}{do Departamento de Eletrónica, Telecomunicações e Informática}{da Universidade de Aveiro}
+
+%%% Edit your degree information.
+%%%
+%%% \Degree{title}{name}
+%%%
+%%% title: Degree title (Mestre or Doutor)
+%%% name : Degree name
+%% Degree title and name
+\Degree{Mestre}{Engenharia Informática}
+
+%%% OPTIONAL: edit grant support texts where
+%%%  appropriate. Maximum two.
+%%%
+%%% \GrantText{grant1}{grant2}
+%% Optional Grant support texts
+% \GrantText{Texto Apoio financeiro do POCTI no âmbito do III Quadro Comunitário de Apoio.}
+%           {Texto Apoio financeiro da FCT e do FSE no âmbito do III Quadro Comunitário de Apoio.}
+
+%%% OPTIONAL: Add a dedication text.
+%% Optional Dedication text
+\Dedication{Dedico este trabalho aos meus pais.}
+
+%%% OPTIONAL: Add an acknowledgement text
+%% Optional Acknowledgement text
+\Acknowledgements{Quero deixar um grande agradecimento ao orientador Filipe Silva e à co-orientadora Pétia Georgieva por toda a dedicação e apoio prestado no desenvolvimento desta dissertação. Quero também agradecer ao Professor Vitor Santos (DEM) e à equipa do LAR do departamento de Engenharia Mecânica, pela disponibilidade dos recursos computacionais necessários para a conclusão desta dissertação. Por fim, quero deixar um especial agradecimento aos meus amigos e família que desde cedo me deram o suporte necessário para que seja bem sucedido nos trabalhos que realizo.}
+
+%%% Edit the keywords and abstract in Portuguese
+%%% Don't forget to remove the \blindtext[3]
+%%%  declaration.
+%%% Don't remove the \selectlanguage statement or you will end with incorrect hyphenation
+%% Mandatory Keywords and Abstract in Portuguese
+\Abstract{Palavras Chave}{classificação de lesões de pele, classificação de múltiplas classes, aprendizagem profunda, rede neuronal convolucional, aprendizagem por transferência, desempenho de generalização.}
+         {Resumo}{\selectlanguage{portuguese}Aprendizagem profunda é um ramo de aprendizagem automática que tem crescido rapidamente e que tem sido usada em problemas relacionados com imagem médica, tais como a deteção de cancro da pele. Durante muito tempo, o diagnóstico de lesões de pele através de imagens clínicas usando aprendizagem profunda era algo considerado inalcançável. No entanto, avanços recentes em redes neuronais profundas permitiram obter resultados de referência em tarefas de classificação. Além disto, existe uma necessidade crescente de sistemas capazes de automatizar este tipo de diagnósticos para reduzir a taxa de mortalidade causada por cancro da pele. Isto proporcionará suporte a dermatologistas no processo de decisão e a pacientes que não tenham fácil acesso a médicos especialistas. Esta dissertação apresenta uma abordagem sistemática tendo em vista o desenvolvimento de um classificador multiclasse (8 classes) para o diagnóstico automático de lesões de pele. O estudo visa analisar um conjunto de metodologias de aprendizagem profunda que permitam responder a questões relacionadas com a sua eficácia. Os resultados indicam que os modelos pre-treinados, baseados em arquiteturas convolucionais, têm um impacto significativo no desempenho desde que sejam devidamente reaproveitados usando aprendizagem por transferência. Este trabalho proporciona uma visão mais clara sobre a influência de diferentes métodos na capacidade de generalização destes modelos. Neste contexto, o impacto de diferentes métodos de processamento de imagem para o aumento de dados é revelado. Por um lado, o balanceamento de classes através do aumento de dados offline permite melhorar significativamente o desempenho de classes sub-representadas. Por outro lado, o aumento de dados on-line traz melhorias consideráveis na redução do sobreajuste (\textit{overfitting}). Adicionalmente, é fornecida uma análise prática de métodos de \textit{ensemble} no contexto do diagnóstico de lesões de pele. Os resultados obtidos com um modelo pre-treinado e com o \textit{ensemble} superam o atual estado da arte da competição ISIC 2019, com uma acurácia balanceada (\textit{balanced accuracy}) de 0,815 e 0,846, respetivamente. Finalmente, foram feitas experiências com diferentes algoritmos para detetar dados que não pertencem à distribuição que resulta das 8 classes originais. Os resultados obtidos contribuem para a compreensão da eficácia destes métodos no contexto de classificadores de lesões de pele.}
+
+%%% OPTIONAL: you can write the keywords and
+%%%  abstract in other languages. You can repeat
+%%%  the following lines as many times as you want
+%%%  or remove them if you only want portuguese.
+%%% Don't remove the \selectlanguage statement or you will end with incorrect hyphenation.
+%%% You can modify the language to any other supported by Latex
+%% Optional Keywords and Abstract in additional languages.
+\Abstract{Keywords}{skin lesion diagnosis, multi-class classification, deep learning, convolutional neural network, transfer learning, generalization performance.}
+         {Abstract}{\selectlanguage{english}Machine learning, more specifically, deep learning is a fast-growing field that is being used for multiple medical imaging related problems, such as the early detection of skin cancer. For a long time, automated diagnosis of skin lesions from clinical images through deep learning was considered to be out of reach. However, recent advancements in deep neural networks allowed it to achieve state-of-the-art results on classification challenges and they have the potential to change the landscape of dermatology care. Moreover, there is a growing need for classification systems to reduce fatality rates of skin cancer by providing support for both dermatologists in the decision-making process and for patients that do not have access to expert physicians. This dissertation presents a systematic approach towards an multi-class (8 classes) deep learning classifier of skin lesions for the ISIC 2019 benchmark challenge. It attempts to study major open research points related to the effectiveness of state-of-the-art deep learning methods. The results indicate that recent CNN architectures can have a significant impact on the overall performance of deep learning based classifiers. However, these pre-trained models should be carefully re-purposed towards skin lesion classification through transfer learning methods. This work provides insight into major ways of improving the generalization performance of deep learning models towards skin lesion diagnosis. In this context, the impact of different image processing augmentation methods for offline and online data augmentation is studied. On the one hand, class balancing through offline data augmentation can significantly improve the generalization performance of underrepresented classes. On the other hand, online data augmentation brings considerable improvements towards overfitting reduction. Furthermore, this work provides a practical analysis of ensembles in the context of skin lesion diagnosis. Both the single model and the ensemble-model approach outperform the current state-of-the-art for the ISIC 2019 challenge, with a balanced multi-class accuracy of 0.815 and 0.846, respectively. Finally, experiments were made with different ways to detect out of training distribution data. The results contribute towards the understanding of the effectiveness of out-of-distribution detection methods in the context of deep learning based skin lesion classifiers.}
+
+%Deep convolutional neural networks (CNNs)4,5 show potential for general and highly variable tasks across many fine-grained object categories6–11. Here we demonstrate classification of skin lesions using a single CNN, trained end-to-end from images directly, using only pixels and disease labels as inputs
+
+%%% Edit the Jury President information.
+%% First Member will be the President of the Jury
+\JuriMember{Prof. Doutor Luís Filipe de Seabra Lopes}{Professor Associado do Departamento de Eletrónica, Telecomunicações e Informática da Universidade de Aveiro}
+
+%%% Repeat the above declaration for additional
+%%%  members of the jury as many times as necessary.
+%% Additional members of the Jury
+\JuriMember{Prof. Doutor João Paulo Morais Ferreira}{Professor Adjunto do Instituto Superior de Engenharia de Coimbra}
+\JuriMember{Prof. Doutor Filipe Miguel Teixeira Pereira da Silva}{Professor Auxiliar do Departamento de Eletrónica, Telecomunicações e Informática da Universidade de Aveiro}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%       DEFINE THESIS COVER FIELDS
+%%                  END
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\begin{document}
+
+%%% By default we consider portuguese to be the
+%%%  main language (the last one in the usepackage
+%%%  declaration). If you're writing your thesis
+%%%  in english uncomment the following line.
+%%% Set the proper language or you will end with incorrect hyphenation!
+%\selectlanguage{english}
+
+\MakeCover
+
+\end{document}

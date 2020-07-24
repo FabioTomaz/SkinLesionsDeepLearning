@@ -1,0 +1,51 @@
+\chapter{Conclusion}
+\label{chapter:conclusion}
+
+This dissertation considered the development of a multi-class dermoscopic image classifier for the diagnosis of 8 types of skin lesions based on pre-trained CNNs. First, pre-trained network architectures were comparatively evaluated and their hyperparameters optimized. Second, several efforts have been made to improve the generalization capability of the deep network. In this context, the impact of data augmentation, class imbalance, and ensembling techniques was demonstrated. Globally, the approach taken throughout the study for skin lesion classification provides significant improvements over current state-of-the-art results from the \ac{ISIC} 2019 challenge. Nevertheless, the experiments performed with the ”unknown” class highlight the need for a better understanding of current limitations of out of training distribution detection methods. Taking this into considerations, this chapter presents the final remarks and underlines points for future research.
+
+\section{Discussion}
+    In conclusion, the following remarks can be drawn from the results obtained in \Cref{chapter:experiments} and \Cref{chapter:experiments2}:
+    
+    \begin{itemize}
+        \item As the dataset of the \ac{ISIC} 2019 dataset is far different from ImageNet, extracting and fine-tuning all the parameters up to the highest layer consistently yielded better performance on all pre-trained models when compared with only training the classifier. Therefore, when a pre-trained model is optimized for a far different dataset, the fine-tuning process will allow it to generalize knowledge to a different domain;
+        
+        \item In skin lesion classification, by using a transfer learning approach, the choice of the pre-trained model's architecture can have a substantial impact on the generalization performance of the model. Furthermore, more recent model architectures proved to bring major improvements in comparison with older architectures. More specifically, EfficientNets and DenseNets provide good results with a low amount of trainable parameters and scale well with the available computational resources. However, architectures like VGG perform poorly and do not scale well with an increase in the number of layers and trainable parameters;
+    
+        \item Transfer learning provides a good framework for the classification of skin lesions as most pre-trained models are well optimized for a wide range of hyperparameters. This property removes the need for an extensive hyperparameter optimization often required on learning from scratch approaches, which allows beginners to easily train and test deep learning models without machine learning expertise;    
+        
+        % For example, if some of the classes have a low amount of samples, and the trained model is too complex (\textit{i.e.}, a large number of trainable parameters) it will lead to overfitting. However, if there is a large amount of data available and the pre-trained model as few trainable parameters it will lead to a worse performance by causing bias. As such, one should always choose the pre-trained model depending on the amount of data available;
+        
+        \item The data augmentation techniques used to oversample the original dataset should be carefully hand-picked depending on the classification problem. Specifically, in skin lesion diagnosis, augmentation techniques that change pixel intensities, distort the original image, or add noise into the image proved to perform worse than simpler techniques like rotations or crops, because they remove or alter important information about the lesions;
+        
+        \item Online data augmentation emerges as a method to significantly reduce overfitting in the problem of skin lesion classification. While simple augmentation techniques like flips, crops, and rotations are a good baseline for applying online data augmentation, complex augmentation techniques like perspective transformations have a much bigger impact on overfitting reduction;
+        
+        \item Ensembling multiple models trained with different \ac{CNN} architectures can slightly improve the overall performance, which can be useful for challenges such as \ac{ISIC} 2019 to gain an edge over other approaches. However, in a real-world scenario, a faster and more practical approach is much more preferable than a slight performance increase. For example, one could use a single small model like in the DenseNet121 and attain similar results;
+        
+        \item Presumably, out-of-distribution detection through softmax thresholding or \ac{ODIN} performs badly in the context of classifying skin lesions, because the samples from the unknown dataset are not substantially different from the original 8 classes from the \ac{ISIC} 2019 challenge. However,  re-training the model with an outlier class can become a viable approach as long as more effort is put into creating a broad distribution of samples from multiple lesions outside of the main 8 from the original \ac{ISIC} 2019 training dataset.
+    \end{itemize}
+
+\section{Limitations and Future Work}
+
+    Several limitations remain present concerning this approach towards \ac{ISIC} 2019, and, generally, for multi-class deep learning based skin lesion classifiers. However, such limitations provide exciting new research opportunities that should be explored in the future, more specifically:
+
+    \begin{itemize}
+        \item There are still limitations to overcome concerning the benchmark challenges presented by the \ac{ISIC} committee. Namely, there is a considerable lack of samples of less common skin lesions in the \ac{ISIC} 2019 dataset. Therefore, gathering more samples towards these types of classes should be a focal point to improve the performance of deep learning based models. Furthermore, in the \ac{ISIC} 2019, performance metrics for 8-class classification (in-distribution) are not discriminated in the website's leaderboard. Finally, the \ac{ISIC} 2019 test set ground truth is not provided to the public after the challenges have ended. This presents some limitations to independent authors who wish to directly compare results to previous submissions and should be addressed in future versions of this challenge;
+    
+        \item As described in \Cref{chapter:environment}, the test set used is fairly small, highly imbalanced, and might not be representative of real-world skin lesions. For example, the \ac{ISIC} 2019 dataset is mostly composed of samples from a very narrow skin pigmentation interval \cite{isic2019}, which might be impactful on the diagnosis of lesions with other skin tones. Methods such as test time data augmentation were not addressed in this work and could ultimately help reduce the footprint of this issue in real-world test sets. However, it would be interesting to assess the performance of these models on an unfiltered test set provided by a local hospital or clinic;
+        
+        \item As some of the results related to online data augmentation were made in later developments of this approach, they were left aside from experiments with class balancing, ensembling, and out of training distribution detection. Therefore, one could further explore different augmentation groups and their impact on the overfitting reduction on other datasets. For example, one could evaluate this method on the upcoming \ac{ISIC} 2020 challenge dataset, which tackles the problem of melanoma detection by using multiple samples for a single patient \cite{isic2020};
+        
+        \item Training an outlier class is a limited approach as there is no clearly defined distribution of the "unknown" samples for the \ac{ISIC} 2019 test set. As such, a survey of the distribution of a real-world test set would be useful. This would allow for a more concise out of distribution set of data to be organized, which would further improve the performance of the "unknown" class and presumably allow this model to be viable for deployment into a production environment; 
+        
+        \item One property of this approach towards automated skin lesion classification was left aside, namely, the interpretability of the model. As it has been discussed in \Cref{section:limitations}, these deep learning models can be seen as a black box because they do not provide arguments so that one could interpret their decisions. A possible solution for this problem is through the incorporation of medical knowledge within the approach to make a hierarchical classifier (\textit{e.g.}, Barata \textit{et al.} \cite{Barata2020}) or make use of the kernel filters during the inference phase (\textit{e.g}, Van Mole \textit{et al.} \cite{VanMolle2018});
+    
+        \item Although challenges like \ac{ISIC} are great for pushing the performance of skin lesion classifiers forward, they do not address problems related to the deployment of these models into real-world scenarios. Integrating these models into an easy-to-use tool and with a user-friendly interface, will ultimately benefit both dermatologists and patients as it abstracts unnecessary machine learning related concerns. As such, an important research focus for the future is the deployment of these deep learning based models into the clinical workflow of a skin professional.
+        
+    \end{itemize}
+    
+\section{Contributions}
+    The following are the contributions from this work towards the research community:
+    \begin{itemize}
+        \item Santos, F., Silva, F., \& Georgieva, P. (2020). Automated Diagnosis of Skin Lesions. 2020 IEEE 10th International Conference on Intelligent Systems (IS), August 28-30 (PAPER ACCEPTED).
+        \item Santos, Fábio, Skin lesion diagnosis using a multi-class deep learning classifier, (2020), GitHub repository, \url{https://github.com/FabioTomaz/msc}.
+    \end{itemize}
